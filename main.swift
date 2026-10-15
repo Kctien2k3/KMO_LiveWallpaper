@@ -17,9 +17,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var activeExportSession: AVAssetExportSession?
     var ceilingTimer: Timer?
 
-    // Mức trần lý tưởng All-in-One: <= 5% CPU & <= 50MB RAM
+    // Mức trần lý tưởng All-in-One: <= 5% CPU & <= 80MB RAM
     let maxCPUPercent: Double = 5.0
-    let maxMemoryMB: Double = 50.0
+    let maxMemoryMB: Double = 80.0
     var ceilingEnabled: Bool = true
     var pausedByCeiling: Bool = false
     var graceUntil: Date = .distantPast
@@ -404,7 +404,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // TUYỆT ĐỐI GIỮ TỐC ĐỘ 1.0x NGUYÊN BẢN ĐỂ BẢO VỆ TẦN SỐ QUÉT MÀN HÌNH 120Hz PROMOTION
         if ceilingEnabled {
-            if mem > 45.0 {
+            if mem > 75.0 {
                 for player in players {
                     player.currentItem?.preferredForwardBufferDuration = 0.25
                 }
@@ -437,7 +437,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     }
                 } else {
                     overLimitStreak = 0
-                    if pausedByCeiling && rawCPU < 3.5 && mem < 44.0 {
+                    if pausedByCeiling && rawCPU < 3.5 && mem < 74.0 {
                         pausedByCeiling = false
                     }
                 }
@@ -549,7 +549,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(NSMenuItem(title: "Chọn video...", action: #selector(chooseVideo), keyEquivalent: "o"))
         menu.addItem(NSMenuItem.separator())
 
-        menuCeilingItem = NSMenuItem(title: "Giới hạn trần (≤ 5% CPU • ≤ 50MB RAM)", action: #selector(toggleMenuCeiling), keyEquivalent: "l")
+        menuCeilingItem = NSMenuItem(title: "Giới hạn trần (≤ 5% CPU • ≤ 80MB RAM)", action: #selector(toggleMenuCeiling), keyEquivalent: "l")
         menu.addItem(menuCeilingItem)
 
         menuAutoPause90Item = NSMenuItem(title: "Tự dừng khi cửa sổ đạt trên 90% màn hình", action: #selector(toggleMenuAutoPause90), keyEquivalent: "1")
@@ -732,7 +732,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         addRowDivider(to: card3, y: 74)
 
         addRowIcon("cpu", to: card3, y: 47)
-        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 50MB RAM", frame: NSRect(x: 40, y: 46, width: 250, height: 20), bold: false, size: 13))
+        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 46, width: 250, height: 20), bold: false, size: 13))
 
         applyCeilingBtn = NSButton(title: "Áp dụng", target: self, action: #selector(applyCeilingNow))
         applyCeilingBtn?.bezelStyle = .rounded

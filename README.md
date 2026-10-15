@@ -9,7 +9,7 @@
 | Tính năng | Chi tiết kỹ thuật & Lợi ích thực tế |
 | :--- | :--- |
 | **🛡️ Bảo vệ tuyệt đối màn hình 120Hz ProMotion & mini-LED** | Khóa tốc độ chuẩn `1.0x`, đồng bộ nhịp quét VSync nguyên lần (`30fps` / `60fps`), khóa dải màu `.sRGB` ổn định và tắt kích sáng HDR/EDR đột ngột. |
-| **⚡ Siêu nhẹ All-in-One (`≤ 5% CPU & ≤ 50MB RAM`)** | Giải mã phần cứng trực tiếp qua chip Media Engine của Apple, không gọi `ffmpeg` ngoài, không sinh tiến trình rác. |
+| **⚡ Siêu nhẹ All-in-One (`≤ 5% CPU & ≤ 80MB RAM`)** | Giải mã phần cứng trực tiếp qua chip Media Engine của Apple, không gọi `ffmpeg` ngoài, không sinh tiến trình rác. |
 | **🧠 Tự động dừng thông minh (`0.0% CPU`)** | Tự ngắt giải mã về `0.0% CPU` khi cửa sổ làm việc chiếm **trên 90% màn hình**, khi mở phần mềm Edit chuyên nghiệp (Adobe Premiere, After Effects, Photoshop, DaVinci Resolve, Final Cut, CapCut...), hoặc khi **Khóa màn hình / Screen Saver / Gập máy**. |
 | **🌊 Chuyển cảnh mượt mà 0% khựng hình** | Phát lại tức thì (`0ms`) từ bộ đệm phần cứng khi về Desktop và dừng mượt (`0.45s` debounce) sau khi hiệu ứng thu/phóng cửa sổ hoặc vuốt chuyển Desktop hoàn tất. |
 | **🎛️ Giao diện chuẩn macOS System Settings** | Tuỳ chỉnh độ phân giải (`1080p`, `2K QHD`, `4K Gốc`), tỷ lệ khung hình (`Lấp đầy`, `Vừa khít`, `Kéo giãn`), thu phóng (`Zoom`) và dịch chuyển ngang/dọc trực quan. |
