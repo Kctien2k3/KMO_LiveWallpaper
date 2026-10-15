@@ -1109,7 +1109,14 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (i, layer) in playerLayers.enumerated() where i < desktopWindows.count {
-            let bounds = desktopWindows[i].contentView?.bounds ?? desktopWindows[i].frame
+            let win = desktopWindows[i]
+            let screen = (i < NSScreen.screens.count) ? NSScreen.screens[i] : (win.screen ?? NSScreen.main)
+            if let s = screen, win.frame != s.frame {
+                win.setFrame(s.frame, display: true)
+                win.contentView?.frame = NSRect(origin: .zero, size: s.frame.size)
+            }
+            let bounds = win.contentView?.bounds ?? win.frame
+
             switch gravityMode {
             case 1:
                 layer.videoGravity = .resizeAspect
@@ -1131,10 +1138,31 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func screensDidChange() {
-        ensureDesktopInfrastructure()
-        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
-           FileManager.default.fileExists(atPath: savedPath) {
-            resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+        let screens = NSScreen.screens
+        if desktopWindows.count == screens.count {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for (i, screen) in screens.enumerated() where i < desktopWindows.count {
+                let win = desktopWindows[i]
+                win.setFrame(screen.frame, display: true)
+                win.contentView?.frame = NSRect(origin: .zero, size: screen.frame.size)
+                let vf = screen.visibleFrame
+                if i < centerSensors.count {
+                    centerSensors[i].setFrame(NSRect(x: vf.midX - 4, y: vf.midY - 4, width: 8, height: 8), display: false)
+                }
+                if i < cornerSensors.count {
+                    cornerSensors[i].setFrame(NSRect(x: vf.minX + 40, y: vf.maxY - 48, width: 8, height: 8), display: false)
+                }
+            }
+            applyLayerTransformAndGravity()
+            CATransaction.commit()
+            updatePlaybackState()
+        } else {
+            ensureDesktopInfrastructure()
+            if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
+               FileManager.default.fileExists(atPath: savedPath) {
+                resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+            }
         }
     }
 
