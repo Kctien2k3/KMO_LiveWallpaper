@@ -15,13 +15,13 @@ if not exist "%EXE_SRC%" (
 
 if not exist "%EXE_SRC%" (
     echo [⚙️] Đang tự động biên dịch ứng dụng...
-    call "%~dp0build.bat"
+    call "%~dp0build.bat" --no-pause
     set "EXE_SRC=%~dp0publish\KMO_LiveWallpaper.exe"
 )
 
 if not exist "%EXE_SRC%" (
     echo [❌] Không tìm thấy tệp KMO_LiveWallpaper.exe để cài đặt!
-    pause
+    ping 127.0.0.1 -n 4 >nul
     exit /b 1
 )
 
@@ -43,4 +43,4 @@ start "" "%TARGET_DIR%\KMO_LiveWallpaper.exe"
 echo ==================================================
 echo   ✅ CÀI ĐẶT HOÀN TẤT! ỨNG DỤNG ĐÃ KHỞI CHẠY.
 echo ==================================================
-timeout /t 3 >nul
+timeout /t 3 >nul 2>nul || ping 127.0.0.1 -n 4 >nul
