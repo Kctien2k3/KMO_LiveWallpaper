@@ -103,8 +103,22 @@ namespace KMO_LiveWallpaper
             Log("Initializing displays...");
             WallpaperManager.Instance.InitializeDisplays();
 
-            Log("Showing MainWindow...");
-            ShowMainWindow();
+            bool isBackground = false;
+            foreach (var arg in e.Args)
+            {
+                if (arg.Equals("--background", StringComparison.OrdinalIgnoreCase))
+                {
+                    isBackground = true;
+                    break;
+                }
+            }
+
+            // Hiển thị cửa sổ cài đặt nếu người dùng mở trực tiếp
+            if (!isBackground)
+            {
+                Log("Showing MainWindow...");
+                ShowMainWindow();
+            }
             Log("Startup complete.");
         }
 
@@ -179,6 +193,18 @@ namespace KMO_LiveWallpaper
                 WallpaperManager.Instance.SetCeilingEnabled(ceilingItem.Checked);
             };
             contextMenu.Items.Add(ceilingItem);
+
+            var startupItem = new ToolStripMenuItem("Tự khởi động khi đăng nhập Windows")
+            {
+                Checked = WallpaperManager.Instance.IsAutoLaunchStartupEnabled(),
+                CheckOnClick = true
+            };
+            startupItem.Click += (s, e) =>
+            {
+                WallpaperManager.Instance.SetAutoLaunchStartup(startupItem.Checked);
+                _mainWindow?.UpdateStartupCheckbox(startupItem.Checked);
+            };
+            contextMenu.Items.Add(startupItem);
 
             contextMenu.Items.Add(new ToolStripSeparator());
 

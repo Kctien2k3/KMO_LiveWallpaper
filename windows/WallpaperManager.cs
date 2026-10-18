@@ -20,6 +20,7 @@ namespace KMO_LiveWallpaper
         public bool CeilingEnabled { get; set; } = true;
         public bool IsMuted { get; set; } = true;
         public int ResolutionMode { get; set; } = 2; // 0: 1080p, 1: 2K, 2: 4K
+        public bool AutoLaunchStartup { get; set; } = false;
     }
 
     public class WallpaperManager
@@ -336,6 +337,46 @@ namespace KMO_LiveWallpaper
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(ConfigFilePath, json);
+            }
+            catch { }
+        }
+
+        public bool IsAutoLaunchStartupEnabled()
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
+                return key?.GetValue("KMO_LiveWallpaper") != null;
+            }
+            catch
+            {
+                return _config.AutoLaunchStartup;
+            }
+        }
+
+        public void SetAutoLaunchStartup(bool enable)
+        {
+            try
+            {
+                _config.AutoLaunchStartup = enable;
+                SaveConfig();
+
+                using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                if (key != null)
+                {
+                    if (enable)
+                    {
+                        string exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                        if (!string.IsNullOrEmpty(exePath))
+                        {
+                            key.SetValue("KMO_LiveWallpaper", $"\"{exePath}\" --background");
+                        }
+                    }
+                    else
+                    {
+                        key.DeleteValue("KMO_LiveWallpaper", false);
+                    }
+                }
             }
             catch { }
         }

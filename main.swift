@@ -2,6 +2,7 @@ import Cocoa
 import AVFoundation
 import CoreVideo
 import UniformTypeIdentifiers
+import ServiceManagement
 
 class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem!
@@ -64,11 +65,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var ceilingSwitch: NSSwitch?
     var applyCeilingBtn: NSButton?
     var muteSwitch: NSSwitch?
+    var launchAtLoginSwitch: NSSwitch?
     var playPauseBtn: NSButton?
 
     // Thanh Menu Bar
     var menuAutoPause90Item: NSMenuItem!
     var menuCeilingItem: NSMenuItem!
+    var menuLaunchAtLoginItem: NSMenuItem!
     var menuStatusItem: NSMenuItem!
 
     let savedVideoKey = "SavedWallpaperVideoPath"
@@ -79,6 +82,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let savedResKey = "SavedResModeV5"
     let savedAutoPause90Key = "SavedAutoPause90EnabledV1"
     let savedCeilingKey = "SavedCeilingEnabled"
+    let savedLaunchAtLoginKey = "SavedLaunchAtLoginEnabled"
+    var launchAtLoginEnabled: Bool = false
 
     var cacheDir: URL {
         let url = FileManager.default.homeDirectoryForCurrentUser
@@ -88,7 +93,12 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        let isBackgroundLaunch = ProcessInfo.processInfo.arguments.contains("--background")
+        if isBackgroundLaunch {
+            NSApp.setActivationPolicy(.accessory)
+        } else {
+            NSApp.setActivationPolicy(.regular)
+        }
 
         if UserDefaults.standard.string(forKey: savedVideoKey) == nil,
            let legacyDefaults = UserDefaults(suiteName: "com.antigravity.HinhNenDong"),
@@ -115,6 +125,17 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ceilingEnabled = UserDefaults.standard.bool(forKey: savedCeilingKey)
         } else {
             ceilingEnabled = true
+        }
+
+        let launchAgentsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+        let plistURL = launchAgentsDir.appendingPathComponent("com.kmo.KMO_LiveWallpaper.plist")
+        if FileManager.default.fileExists(atPath: plistURL.path) {
+            launchAtLoginEnabled = true
+        } else if UserDefaults.standard.object(forKey: savedLaunchAtLoginKey) != nil {
+            launchAtLoginEnabled = UserDefaults.standard.bool(forKey: savedLaunchAtLoginKey)
+        } else {
+            launchAtLoginEnabled = false
         }
 
         setupMenuBar()
@@ -149,10 +170,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         startCeilingMonitor()
-        showControlWindow()
+        if !isBackgroundLaunch {
+            showControlWindow()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        NSApp.setActivationPolicy(.regular)
         showControlWindow()
         return true
     }
@@ -555,6 +579,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menuAutoPause90Item = NSMenuItem(title: "Tự dừng khi cửa sổ đạt trên 90% màn hình", action: #selector(toggleMenuAutoPause90), keyEquivalent: "1")
         menu.addItem(menuAutoPause90Item)
 
+        menuLaunchAtLoginItem = NSMenuItem(title: "Tự khởi động khi đăng nhập máy", action: #selector(toggleMenuLaunchAtLogin), keyEquivalent: "")
+        menu.addItem(menuLaunchAtLoginItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Tạm dừng / Phát tiếp", action: #selector(togglePlayPause), keyEquivalent: "p"))
         menu.addItem(NSMenuItem(title: "Thoát", action: #selector(quitApp), keyEquivalent: "q"))
@@ -565,6 +592,11 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func syncMenuCheckmarks() {
         menuAutoPause90Item?.state = autoPause90Enabled ? .on : .off
         menuCeilingItem?.state = ceilingEnabled ? .on : .off
+        menuLaunchAtLoginItem?.state = launchAtLoginEnabled ? .on : .off
+    }
+
+    @objc func toggleMenuLaunchAtLogin() {
+        setLaunchAtLogin(enabled: !launchAtLoginEnabled)
     }
 
     @objc func toggleMenuAutoPause90() {
@@ -604,7 +636,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 506)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 544)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -628,7 +660,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
         // 1. CARD 1: Video & Chất lượng (Height: 88)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 372, width: cardW, height: 88))
+        let card1 = makeCard(frame: NSRect(x: margin, y: 410, width: cardW, height: 88))
         visualEffect.addSubview(card1)
 
         addRowIcon("film", to: card1, y: 55)
@@ -656,7 +688,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         card1.addSubview(resSegment!)
 
         // 2. CARD 2: Khung hình & Bố cục (Height: 172)
-        let card2 = makeCard(frame: NSRect(x: margin, y: 186, width: cardW, height: 172))
+        let card2 = makeCard(frame: NSRect(x: margin, y: 224, width: cardW, height: 172))
         visualEffect.addSubview(card2)
 
         addRowIcon("aspectratio", to: card2, y: 139)
@@ -716,36 +748,47 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         offsetYValueLabel?.alignment = .right
         card2.addSubview(offsetYValueLabel!)
 
-        // 3. CARD 3: Tiết kiệm năng lượng & Mức trần (Height: 116)
-        let card3 = makeCard(frame: NSRect(x: margin, y: 56, width: cardW, height: 116))
+        // 3. CARD 3: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
+        let card3 = makeCard(frame: NSRect(x: margin, y: 56, width: cardW, height: 154))
         visualEffect.addSubview(card3)
 
-        addRowIcon("macwindow", to: card3, y: 85)
-        card3.addSubview(makeLabel("Tự dừng khi cửa sổ đạt trên 90% màn hình", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
+        addRowIcon("macwindow", to: card3, y: 123)
+        card3.addSubview(makeLabel("Tự dừng khi cửa sổ đạt trên 90% màn hình", frame: NSRect(x: 40, y: 122, width: 320, height: 20), bold: false, size: 13))
 
-        autoPauseSwitch = NSSwitch(frame: NSRect(x: 384, y: 81, width: 40, height: 22))
+        autoPauseSwitch = NSSwitch(frame: NSRect(x: 384, y: 119, width: 40, height: 22))
         autoPauseSwitch?.state = autoPause90Enabled ? .on : .off
         autoPauseSwitch?.target = self
         autoPauseSwitch?.action = #selector(autoPauseChanged)
         card3.addSubview(autoPauseSwitch!)
 
-        addRowDivider(to: card3, y: 74)
+        addRowDivider(to: card3, y: 112)
 
-        addRowIcon("cpu", to: card3, y: 47)
-        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 46, width: 250, height: 20), bold: false, size: 13))
+        addRowIcon("cpu", to: card3, y: 85)
+        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 250, height: 20), bold: false, size: 13))
 
         applyCeilingBtn = NSButton(title: "Áp dụng", target: self, action: #selector(applyCeilingNow))
         applyCeilingBtn?.bezelStyle = .rounded
         applyCeilingBtn?.controlSize = .small
         applyCeilingBtn?.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        applyCeilingBtn?.frame = NSRect(x: 300, y: 44, width: 76, height: 24)
+        applyCeilingBtn?.frame = NSRect(x: 300, y: 82, width: 76, height: 24)
         card3.addSubview(applyCeilingBtn!)
 
-        ceilingSwitch = NSSwitch(frame: NSRect(x: 384, y: 44, width: 40, height: 22))
+        ceilingSwitch = NSSwitch(frame: NSRect(x: 384, y: 82, width: 40, height: 22))
         ceilingSwitch?.state = ceilingEnabled ? .on : .off
         ceilingSwitch?.target = self
         ceilingSwitch?.action = #selector(toggleCeilingSwitch)
         card3.addSubview(ceilingSwitch!)
+
+        addRowDivider(to: card3, y: 74)
+
+        addRowIcon("power", to: card3, y: 47)
+        card3.addSubview(makeLabel("Tự khởi động khi đăng nhập máy", frame: NSRect(x: 40, y: 46, width: 300, height: 20), bold: false, size: 13))
+
+        launchAtLoginSwitch = NSSwitch(frame: NSRect(x: 384, y: 44, width: 40, height: 22))
+        launchAtLoginSwitch?.state = launchAtLoginEnabled ? .on : .off
+        launchAtLoginSwitch?.target = self
+        launchAtLoginSwitch?.action = #selector(toggleLaunchAtLoginSwitch)
+        card3.addSubview(launchAtLoginSwitch!)
 
         addRowDivider(to: card3, y: 36)
 
@@ -828,6 +871,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         offsetYValueLabel = nil
         ceilingSwitch = nil
         applyCeilingBtn = nil
+        launchAtLoginSwitch = nil
         muteSwitch = nil
         playPauseBtn = nil
         NSApp.setActivationPolicy(.accessory)
@@ -838,6 +882,58 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         if let win = notification.object as? NSWindow, win == controlWindow {
             hideToBackground()
+        }
+    }
+
+    @objc func toggleLaunchAtLoginSwitch() {
+        guard let sw = launchAtLoginSwitch else { return }
+        setLaunchAtLogin(enabled: sw.state == .on)
+    }
+
+    func setLaunchAtLogin(enabled: Bool) {
+        launchAtLoginEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: savedLaunchAtLoginKey)
+        launchAtLoginSwitch?.state = enabled ? .on : .off
+        syncMenuCheckmarks()
+
+        let launchAgentsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+        let plistURL = launchAgentsDir.appendingPathComponent("com.kmo.KMO_LiveWallpaper.plist")
+
+        if enabled {
+            try? FileManager.default.createDirectory(at: launchAgentsDir, withIntermediateDirectories: true)
+            var execPath = "/Applications/KMO_LiveWallpaper.app/Contents/MacOS/KMO_LiveWallpaper"
+            if !FileManager.default.fileExists(atPath: execPath) {
+                execPath = Bundle.main.executablePath ?? execPath
+            }
+            let plistContent = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>Label</key>
+                <string>com.kmo.KMO_LiveWallpaper</string>
+                <key>ProgramArguments</key>
+                <array>
+                    <string>\(execPath)</string>
+                    <string>--background</string>
+                </array>
+                <key>RunAtLoad</key>
+                <true/>
+                <key>ProcessType</key>
+                <string>Interactive</string>
+            </dict>
+            </plist>
+            """
+            try? plistContent.write(to: plistURL, atomically: true, encoding: .utf8)
+            if #available(macOS 13.0, *) {
+                try? SMAppService.mainApp.register()
+            }
+        } else {
+            try? FileManager.default.removeItem(at: plistURL)
+            if #available(macOS 13.0, *) {
+                try? SMAppService.mainApp.unregister()
+            }
         }
     }
 

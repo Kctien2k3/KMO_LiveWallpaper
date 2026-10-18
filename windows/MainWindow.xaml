@@ -1,8 +1,8 @@
 <Window x:Class="KMO_LiveWallpaper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KMO Live Wallpaper"
-        Width="510" Height="620"
+        Title="KMO_LiveWallpaper"
+        Width="510" Height="650"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
         Foreground="#ECECEC"
@@ -130,6 +130,13 @@
                         <DockPanel Margin="0,2,0,8">
                             <TextBlock Text="⚡ Trần tối ưu ≤ 5% CPU &amp; 80MB RAM" VerticalAlignment="Center" FontSize="12.5" />
                             <CheckBox x:Name="CbCeiling" IsChecked="True" HorizontalAlignment="Right" Checked="CbCeiling_Changed" Unchecked="CbCeiling_Changed" />
+                        </DockPanel>
+
+                        <Separator Background="#333333" Margin="0,4,0,8" />
+
+                        <DockPanel Margin="0,2,0,8">
+                            <TextBlock Text="🚀 Tự khởi động khi đăng nhập Windows" VerticalAlignment="Center" FontSize="12.5" />
+                            <CheckBox x:Name="CbAutoLaunchStartup" IsChecked="False" HorizontalAlignment="Right" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
                         </DockPanel>
 
                         <Separator Background="#333333" Margin="0,4,0,8" />
