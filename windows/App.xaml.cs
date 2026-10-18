@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Windows;
@@ -11,6 +12,7 @@ namespace KMO_LiveWallpaper
     public partial class App : Application
     {
         private static Mutex? _mutex;
+        private static EventWaitHandle? _showEvent;
         private NotifyIcon? _trayIcon;
         private MainWindow? _mainWindow;
 
@@ -40,46 +42,81 @@ namespace KMO_LiveWallpaper
 
             Log("Application starting...");
 
-            // Kiểm tra Single Instance (chỉ cho phép 1 app chạy duy nhất)
+            // Kiểm tra Single Instance
             _mutex = new Mutex(true, "KMO_LiveWallpaper_SingleInstance_Mutex", out bool createdNew);
+            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "KMO_LiveWallpaper_ShowEvent");
+
             if (!createdNew)
             {
-                Log("Another instance already running. Exiting.");
-                MessageBox.Show("Ứng dụng KMO_LiveWallpaper đang chạy trong khay hệ thống!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                Log("Another instance already running. Signaling window to show.");
+                _showEvent.Set();
                 Shutdown();
                 return;
             }
 
+            // Lắng nghe sự kiện để kích hoạt cửa sổ khi người dùng bấm lại icon app ngoài Desktop
+            var showListener = new Thread(() =>
+            {
+                while (true)
+                {
+                    if (_showEvent.WaitOne())
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            ShowMainWindow();
+                        });
+                    }
+                }
+            })
+            {
+                IsBackground = true
+            };
+            showListener.Start();
+
             Log("Mutex acquired. Setting up Tray Icon...");
-            // Khởi tạo khay hệ thống (System Tray Icon)
             SetupTrayIcon();
 
             Log("Creating MainWindow...");
-            // Khởi tạo cửa sổ cài đặt
             _mainWindow = new MainWindow();
 
             Log("Initializing displays...");
-            // Khởi động các màn hình hiển thị video
             WallpaperManager.Instance.InitializeDisplays();
 
             Log("Showing MainWindow...");
-            // Hiển thị cửa sổ cài đặt lần đầu
-            _mainWindow.Show();
+            ShowMainWindow();
             Log("Startup complete.");
         }
 
         private void SetupTrayIcon()
         {
+            Icon icon = SystemIcons.Application;
+            try
+            {
+                string icoPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (System.IO.File.Exists(icoPath))
+                {
+                    icon = new Icon(icoPath);
+                }
+                else
+                {
+                    string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    var extracted = Icon.ExtractAssociatedIcon(exePath);
+                    if (extracted != null) icon = extracted;
+                }
+            }
+            catch {}
+
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application,
-                Text = "KMO_LiveWallpaper",
+                Icon = icon,
+                Text = "KMO Live Wallpaper",
                 Visible = true
             };
 
             var contextMenu = new ContextMenuStrip();
 
-            var openItem = new ToolStripMenuItem("Mở cài đặt...");
+            var openItem = new ToolStripMenuItem("Mở KMO Live Wallpaper");
+            openItem.Font = new System.Drawing.Font(openItem.Font, System.Drawing.FontStyle.Bold);
             openItem.Click += (s, e) => ShowMainWindow();
             contextMenu.Items.Add(openItem);
 
@@ -128,7 +165,7 @@ namespace KMO_LiveWallpaper
             playPauseItem.Click += (s, e) => WallpaperManager.Instance.TogglePlayPause();
             contextMenu.Items.Add(playPauseItem);
 
-            var exitItem = new ToolStripMenuItem("Thoát");
+            var exitItem = new ToolStripMenuItem("Thoát ứng dụng");
             exitItem.Click += (s, e) => ExitApplication();
             contextMenu.Items.Add(exitItem);
 
@@ -136,18 +173,24 @@ namespace KMO_LiveWallpaper
             _trayIcon.DoubleClick += (s, e) => ShowMainWindow();
         }
 
-        private void ShowMainWindow()
+        public void ShowMainWindow()
         {
             if (_mainWindow == null)
             {
                 _mainWindow = new MainWindow();
             }
-            _mainWindow.Show();
+            if (!_mainWindow.IsVisible)
+            {
+                _mainWindow.Show();
+            }
             _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.Activate();
+            _mainWindow.Topmost = true;
+            _mainWindow.Topmost = false;
+            _mainWindow.Focus();
         }
 
-        private void ExitApplication()
+        public void ExitApplication()
         {
             if (_trayIcon != null)
             {
@@ -165,6 +208,7 @@ namespace KMO_LiveWallpaper
             Log($"Application exiting with code {e.ApplicationExitCode}");
             try { _mutex?.ReleaseMutex(); } catch {}
             try { _mutex?.Dispose(); } catch {}
+            try { _showEvent?.Dispose(); } catch {}
             base.OnExit(e);
         }
     }

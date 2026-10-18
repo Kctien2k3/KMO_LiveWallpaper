@@ -7,6 +7,7 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using Color = System.Windows.Media.Color;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using Application = System.Windows.Application;
 
 namespace KMO_LiveWallpaper
 {
@@ -187,16 +188,26 @@ namespace KMO_LiveWallpaper
             WallpaperManager.Instance.TogglePlayPause();
         }
 
+        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
         private void BtnHide_Click(object sender, RoutedEventArgs e)
         {
             Hide();
         }
 
+        private void BtnExit_Click(object sender, RoutedEventArgs e)
+        {
+            (Application.Current as App)?.ExitApplication();
+        }
+
         private void OnWindowClosing(object? sender, CancelEventArgs e)
         {
-            // Không thoát app khi bấm X, mà thu gọn về System Tray (khay đồng hồ Taskbar)
+            // Khi nhấn nút X trên thanh tiêu đề: thu nhỏ xuống Taskbar như ứng dụng bình thường
             e.Cancel = true;
-            Hide();
+            WindowState = WindowState.Minimized;
         }
     }
 }
