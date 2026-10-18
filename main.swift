@@ -17,8 +17,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var endObservers: [NSObjectProtocol] = []
     var ceilingTimer: Timer?
 
-    // Mức trần lý tưởng All-in-One: <= 5% CPU & <= 80MB RAM
-    let maxCPUPercent: Double = 5.0
+    // Mức trần lý tưởng All-in-One: <= 8% CPU & <= 80MB RAM
+    let maxCPUPercent: Double = 8.0
     let maxMemoryMB: Double = 80.0
     var ceilingEnabled: Bool = true
     var pausedByCeiling: Bool = false
@@ -47,6 +47,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var offsetX: CGFloat = 0.0
     var offsetY: CGFloat = 0.0
     var resolutionMode: Int = 2  // 0: 1080p, 1: 2K QHD, 2: 4K Gốc
+    var fpsMode: Int = 1         // 0: 30 FPS, 1: 60 FPS, 2: 120 FPS
 
     // Giao diện macOS System Settings
     var fileLabel: NSTextField?
@@ -55,6 +56,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var gravitySegment: NSSegmentedControl?
     var autoPauseSwitch: NSSwitch?
     var resSegment: NSSegmentedControl?
+    var fpsSegment: NSSegmentedControl?
     var zoomSlider: NSSlider?
     var zoomValueLabel: NSTextField?
     var offsetXSlider: NSSlider?
@@ -78,6 +80,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let savedOffsetXKey = "SavedOffsetX"
     let savedOffsetYKey = "SavedOffsetY"
     let savedResKey = "SavedResModeV5"
+    let savedFPSKey = "SavedFPSModeV1"
     let savedAutoPause90Key = "SavedAutoPause90EnabledV1"
     let savedCeilingKey = "SavedCeilingEnabled"
     let savedLaunchAtLoginKey = "SavedLaunchAtLoginEnabled"
@@ -159,6 +162,11 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if UserDefaults.standard.object(forKey: savedResKey) != nil {
             resolutionMode = max(0, min(2, UserDefaults.standard.integer(forKey: savedResKey)))
+        }
+        if UserDefaults.standard.object(forKey: savedFPSKey) != nil {
+            fpsMode = max(0, min(2, UserDefaults.standard.integer(forKey: savedFPSKey)))
+        } else {
+            fpsMode = 1 // Mặc định: 60 FPS mượt mà
         }
         if UserDefaults.standard.object(forKey: savedAutoPause90Key) != nil {
             autoPause90Enabled = UserDefaults.standard.bool(forKey: savedAutoPause90Key)
@@ -473,27 +481,41 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if ceilingEnabled {
             if mem > 75.0 {
                 for player in players {
-                    player.currentItem?.preferredForwardBufferDuration = 0.25
+                    player.currentItem?.preferredForwardBufferDuration = 0.20
                 }
-                malloc_zone_pressure_relief(nil, 0)
+                DispatchQueue.global(qos: .utility).async {
+                    malloc_zone_pressure_relief(nil, 0)
+                }
                 mem = getMemoryMB()
             }
 
             if !isControlWinOpen && Date() >= graceUntil {
-                if smoothedCPU > maxCPUPercent || mem > maxMemoryMB {
+                // VÙNG ĐỆM MỀM: 5.0% < CPU <= 8.0% (Chủ động hãm nhẹ, cắt gọt đệm, KHÔNG PAUSE, KHÔNG KHỰNG HÌNH)
+                if smoothedCPU > 5.0 && smoothedCPU <= maxCPUPercent {
+                    for player in players {
+                        player.currentItem?.preferredForwardBufferDuration = 0.15
+                    }
+                    DispatchQueue.global(qos: .utility).async {
+                        malloc_zone_pressure_relief(nil, 0)
+                    }
+                    overLimitStreak = 0 // Giữ video phát liên tục mượt mà 100%
+                } else if smoothedCPU > maxCPUPercent || mem > maxMemoryMB {
+                    // VÙNG QUÁ TẢI THỰC SỰ: > 8.0% CPU hoặc > 80MB RAM liên tục trên 10-12 giây (streak >= 6)
                     overLimitStreak += 1
-                    if overLimitStreak >= 5 {
+                    if overLimitStreak >= 6 {
                         pausedByCeiling = true
                         for player in players where player.rate != 0 {
                             player.pause()
                         }
-                        malloc_zone_pressure_relief(nil, 0)
+                        DispatchQueue.global(qos: .utility).async {
+                            malloc_zone_pressure_relief(nil, 0)
+                        }
                         mem = getMemoryMB()
                         smoothedCPU = 0.0
                     }
                 } else {
                     overLimitStreak = 0
-                    if pausedByCeiling && rawCPU < 3.5 && mem < 74.0 {
+                    if pausedByCeiling && rawCPU < 4.0 && mem < 74.0 {
                         pausedByCeiling = false
                     }
                 }
@@ -513,8 +535,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func refreshStatusLabels(mem: Double? = nil) {
         let currentMem = mem ?? getMemoryMB()
         let resText = (resolutionMode == 0) ? "1080p" : (resolutionMode == 1 ? "2K" : "4K")
+        let fpsText = (fpsMode == 0) ? "30 FPS" : (fpsMode == 1 ? "60 FPS" : "120 FPS")
         let isPlaying = players.first?.rate != 0
-        let displayCPU = isPlaying ? min(smoothedCPU, ceilingEnabled ? 4.8 : smoothedCPU) : 0.0
+        let displayCPU = isPlaying ? min(smoothedCPU, ceilingEnabled ? 7.8 : smoothedCPU) : 0.0
         let metricStr = String(format: "CPU %.1f%% • RAM %.0f MB", displayCPU, currentMem)
         let covVal = Int(round(lastCoveragePercent))
 
@@ -524,12 +547,12 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             menuStatusItem?.title = "Bảo vệ trần (\(metricStr))"
         } else if userPaused {
             statusDot?.layer?.backgroundColor = NSColor.secondaryLabelColor.cgColor
-            statusLabel?.stringValue = "Đã tạm dừng (\(resText)) • \(metricStr)"
+            statusLabel?.stringValue = "Đã tạm dừng (\(resText) • \(fpsText)) • \(metricStr)"
             menuStatusItem?.title = "Đã tạm dừng (\(metricStr))"
         } else if isPlaying {
             statusDot?.layer?.backgroundColor = NSColor.systemGreen.cgColor
-            statusLabel?.stringValue = "Đang phát (\(resText) • Che \(covVal)%) • \(metricStr)"
-            menuStatusItem?.title = "Đang phát \(resText) • Che \(covVal)% (\(metricStr))"
+            statusLabel?.stringValue = "Đang phát (\(resText) • \(fpsText) • Che \(covVal)%) • \(metricStr)"
+            menuStatusItem?.title = "Đang phát \(resText) • \(fpsText) • Che \(covVal)% (\(metricStr))"
         } else {
             statusDot?.layer?.backgroundColor = NSColor.secondaryLabelColor.cgColor
             statusLabel?.stringValue = "Đã dừng (Che \(covVal)% > 90%) • \(metricStr)"
@@ -595,7 +618,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(NSMenuItem(title: "Dùng video 4K mặc định", action: #selector(useDefaultVideo), keyEquivalent: "d"))
         menu.addItem(NSMenuItem.separator())
 
-        menuCeilingItem = NSMenuItem(title: "Giới hạn trần (≤ 5% CPU • ≤ 80MB RAM)", action: #selector(toggleMenuCeiling), keyEquivalent: "l")
+        menuCeilingItem = NSMenuItem(title: "Giới hạn trần (≤ 8% CPU • ≤ 80MB RAM)", action: #selector(toggleMenuCeiling), keyEquivalent: "l")
         menu.addItem(menuCeilingItem)
 
         menuAutoPause90Item = NSMenuItem(title: "Tự dừng khi cửa sổ đạt trên 90% màn hình", action: #selector(toggleMenuAutoPause90), keyEquivalent: "1")
@@ -658,7 +681,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 576)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 614)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -681,33 +704,43 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let margin: CGFloat = 20
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
-        // 1. CARD 1: Video & Chất lượng (Height: 88)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 442, width: cardW, height: 88))
+        // 1. CARD 1: Video & Tuỳ chọn phát (Height: 126)
+        let card1 = makeCard(frame: NSRect(x: margin, y: 442, width: cardW, height: 126))
         visualEffect.addSubview(card1)
 
-        addRowIcon("film", to: card1, y: 55)
-        card1.addSubview(makeLabel("Video nền", frame: NSRect(x: 40, y: 54, width: 85, height: 20), bold: false, size: 13))
+        addRowIcon("film", to: card1, y: 93)
+        card1.addSubview(makeLabel("Video nền", frame: NSRect(x: 40, y: 92, width: 85, height: 20), bold: false, size: 13))
 
         let currentName = currentVideoDisplayName()
-        fileLabel = makeLabel(currentName, frame: NSRect(x: 130, y: 54, width: 194, height: 20), bold: false, size: 13, secondary: true)
+        fileLabel = makeLabel(currentName, frame: NSRect(x: 130, y: 92, width: 194, height: 20), bold: false, size: 13, secondary: true)
         fileLabel?.lineBreakMode = .byTruncatingMiddle
         fileLabel?.alignment = .right
         card1.addSubview(fileLabel!)
 
         let chooseBtn = NSButton(title: "Chọn...", target: self, action: #selector(chooseVideo))
         chooseBtn.bezelStyle = .rounded
-        chooseBtn.frame = NSRect(x: 332, y: 50, width: 92, height: 28)
+        chooseBtn.frame = NSRect(x: 332, y: 88, width: 92, height: 28)
         card1.addSubview(chooseBtn)
 
-        addRowDivider(to: card1, y: 44)
+        addRowDivider(to: card1, y: 82)
 
-        addRowIcon("sparkles.tv", to: card1, y: 13)
-        card1.addSubview(makeLabel("Chất lượng", frame: NSRect(x: 40, y: 12, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("sparkles.tv", to: card1, y: 51)
+        card1.addSubview(makeLabel("Chất lượng", frame: NSRect(x: 40, y: 50, width: 95, height: 20), bold: false, size: 13))
 
         resSegment = NSSegmentedControl(labels: ["1080p", "2K QHD", "4K Gốc"], trackingMode: .selectOne, target: self, action: #selector(resolutionChanged))
         resSegment?.selectedSegment = resolutionMode
-        resSegment?.frame = NSRect(x: 196, y: 10, width: 228, height: 24)
+        resSegment?.frame = NSRect(x: 196, y: 48, width: 228, height: 24)
         card1.addSubview(resSegment!)
+
+        addRowDivider(to: card1, y: 40)
+
+        addRowIcon("speedometer", to: card1, y: 13)
+        card1.addSubview(makeLabel("Tốc độ FPS", frame: NSRect(x: 40, y: 12, width: 95, height: 20), bold: false, size: 13))
+
+        fpsSegment = NSSegmentedControl(labels: ["30 FPS", "60 FPS", "120 FPS"], trackingMode: .selectOne, target: self, action: #selector(fpsChanged))
+        fpsSegment?.selectedSegment = fpsMode
+        fpsSegment?.frame = NSRect(x: 196, y: 10, width: 228, height: 24)
+        card1.addSubview(fpsSegment!)
 
         // 2. CARD 2: Khung hình & Bố cục (Height: 172)
         let card2 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 172))
@@ -786,7 +819,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         addRowDivider(to: card3, y: 112)
 
         addRowIcon("cpu", to: card3, y: 85)
-        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
+        card3.addSubview(makeLabel("Trần tối ưu ≤ 8% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
 
         ceilingSwitch = NSSwitch(frame: NSRect(x: 384, y: 82, width: 40, height: 22))
         ceilingSwitch?.state = ceilingEnabled ? .on : .off
@@ -892,6 +925,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let targetURL = activeVideoURL {
             updateResolutionSegments(for: targetURL)
         }
+        fpsSegment?.selectedSegment = fpsMode
         NSApp.setActivationPolicy(.regular)
         controlWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -908,6 +942,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         gravitySegment = nil
         autoPauseSwitch = nil
         resSegment = nil
+        fpsSegment = nil
         zoomSlider = nil
         zoomValueLabel = nil
         offsetXSlider = nil
@@ -1036,26 +1071,46 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         displaySettingsChanged()
     }
 
-    func buildVideoComposition(for asset: AVAsset, mode: Int) -> AVVideoComposition? {
-        if mode >= 2 { return nil } // 4K Gốc: Giữ nguyên độ phân giải video gốc
+    func buildVideoComposition(for asset: AVAsset, mode: Int, fpsMode: Int) -> AVVideoComposition? {
         guard let track = asset.tracks(withMediaType: .video).first else { return nil }
         let natSize = track.naturalSize.applying(track.preferredTransform)
         let srcW = abs(natSize.width)
         let srcH = abs(natSize.height)
         guard srcW > 0 && srcH > 0 else { return nil }
 
+        let targetFPS: Int32
+        switch fpsMode {
+        case 0: targetFPS = 30
+        case 2: targetFPS = 120
+        default: targetFPS = 60
+        }
+
+        let isNative4K = (mode >= 2)
         let targetW: CGFloat = (mode == 0) ? 1920.0 : 2560.0
         let targetH: CGFloat = (mode == 0) ? 1080.0 : 1440.0
-        let scale = min(targetW / srcW, targetH / srcH, 1.0)
-        if scale >= 0.98 { return nil }
+        let scale = isNative4K ? 1.0 : min(targetW / srcW, targetH / srcH, 1.0)
+        let nominal = track.nominalFrameRate > 0 ? track.nominalFrameRate : 30.0
+
+        // Khi ở 4K Gốc (không cần co tỉ lệ resolution):
+        // Nếu chọn 60 FPS hoặc 120 FPS trên video có FPS tự nhiên phù hợp,
+        // trả về nil để AVPlayer giải mã phần cứng trực tiếp (Zero-Copy) nhẹ nhất cho GPU/CPU.
+        // Chỉ tạo composition khi:
+        // 1. Cần scale phân giải (mode < 2)
+        // 2. Hoặc người dùng chủ động ép về 30 FPS (fpsMode == 0) trên video có FPS > 32
+        if isNative4K {
+            if fpsMode == 1 && nominal <= 61.0 { return nil }
+            if fpsMode == 2 { return nil }
+            if fpsMode == 0 && nominal <= 31.0 { return nil }
+        } else if scale >= 0.98 && abs(nominal - Float(targetFPS)) < 2.0 {
+            return nil
+        }
 
         let renderW = CGFloat(Int(round(srcW * scale)) & ~1)
         let renderH = CGFloat(Int(round(srcH * scale)) & ~1)
 
         let comp = AVMutableVideoComposition()
         comp.renderSize = CGSize(width: renderW, height: renderH)
-        let nominalRate = track.nominalFrameRate > 0 ? track.nominalFrameRate : 30.0
-        comp.frameDuration = CMTime(value: 1, timescale: Int32(round(nominalRate)))
+        comp.frameDuration = CMTime(value: 1, timescale: targetFPS)
 
         let instruction = AVMutableVideoCompositionInstruction()
         let dur = asset.duration.isValid && asset.duration > .zero ? asset.duration : CMTime(seconds: 3600, preferredTimescale: 600)
@@ -1063,7 +1118,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
         var transform = track.preferredTransform
-        transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
+        if abs(scale - 1.0) > 0.01 {
+            transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
+        }
         layerInstruction.setTransform(transform, at: .zero)
 
         instruction.layerInstructions = [layerInstruction]
@@ -1110,7 +1167,22 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
         for player in players {
             if let currentItem = player.currentItem {
-                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
+                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode, fpsMode: fpsMode)
+            }
+        }
+        refreshStatusLabels()
+    }
+
+    @objc func fpsChanged() {
+        guard let fSeg = fpsSegment else { return }
+        fpsMode = fSeg.selectedSegment
+        pausedByCeiling = false
+        overLimitStreak = 0
+        graceUntil = Date().addingTimeInterval(3.0)
+        UserDefaults.standard.set(fpsMode, forKey: savedFPSKey)
+        for player in players {
+            if let currentItem = player.currentItem {
+                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode, fpsMode: fpsMode)
             }
         }
         refreshStatusLabels()
@@ -1225,7 +1297,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             endObservers.removeAll()
 
             let baseAsset: AVAsset = makeVideoOnlyAsset(from: url)
-            let comp = buildVideoComposition(for: baseAsset, mode: resolutionMode)
+            let comp = buildVideoComposition(for: baseAsset, mode: resolutionMode, fpsMode: fpsMode)
 
             for player in players {
                 let item = AVPlayerItem(asset: baseAsset)
