@@ -161,6 +161,7 @@ namespace KMO_LiveWallpaper
             _lastCoverage = cov;
 
             bool shouldPause = proApp || (_config.AutoPause90Enabled && cov >= 90.0);
+            App.Log($"[PlaybackState] Cov={cov:F1}%, ProApp={proApp}, ShouldPause={shouldPause}, AnyPlaying={IsAnyPlaying()}");
 
             if (!shouldPause)
             {

@@ -12,8 +12,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/2] Đang biên dịch bản Release Single-File (x64)...
-dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
+echo [1/2] Đang biên dịch bản Release Single-File Standalone (x64)...
+dotnet publish -c Release -r win-x64 -o publish
 
 if %errorlevel% neq 0 (
     echo [LỖI] Quá trình biên dịch thất bại!

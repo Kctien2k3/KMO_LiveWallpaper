@@ -1,8 +1,8 @@
 <Window x:Class="KMO_LiveWallpaper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KMO_LiveWallpaper"
-        Width="510" Height="650"
+        Title="KMO Live Wallpaper"
+        Width="540" Height="650"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
         Foreground="#ECECEC"
@@ -43,7 +43,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="50" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Main Content Cards -->
@@ -151,18 +151,27 @@
         </ScrollViewer>
 
         <!-- Footer Bar -->
-        <Border Grid.Row="1" Background="#181818" BorderBrush="#2D2D2D" BorderThickness="0,1,0,0" Padding="14,8">
-            <DockPanel>
-                <Ellipse x:Name="DotStatus" Width="8" Height="8" Fill="#4CC2FF" Margin="0,0,8,0" VerticalAlignment="Center" />
-                <TextBlock x:Name="TxtStatus" Text="Đang phát (4K • RAM 42MB)" Foreground="#BBBBBB" FontSize="11.5" VerticalAlignment="Center" />
+        <Border Grid.Row="1" Background="#181818" BorderBrush="#2D2D2D" BorderThickness="0,1,0,0" Padding="16,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="BtnPlayPause" Content="Tạm dừng" Width="78" Margin="0,0,6,0" Style="{StaticResource ModernBtn}" Click="BtnPlayPause_Click" />
-                    <Button Content="Thu nhỏ" Width="68" Margin="0,0,6,0" Style="{StaticResource ModernBtn}" Click="BtnMinimize_Click" />
-                    <Button Content="Ẩn khay" Width="68" Margin="0,0,6,0" Style="{StaticResource ModernBtn}" Click="BtnHide_Click" />
-                    <Button Content="Thoát" Width="60" Style="{StaticResource ModernBtn}" Background="#3A1C1C" BorderBrush="#5C2626" Click="BtnExit_Click" />
-                </StackPanel>
-            </DockPanel>
+                <!-- Row 0: Status & Stats -->
+                <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                    <Ellipse x:Name="DotStatus" Width="8" Height="8" Fill="#4CC2FF" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TxtStatus" Text="Đang phát" Foreground="#BBBBBB" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+
+                <!-- Row 1: Action Buttons -->
+                <UniformGrid Grid.Row="1" Columns="4">
+                    <Button x:Name="BtnPlayPause" Content="Tạm dừng" Margin="0,0,4,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnPlayPause_Click" />
+                    <Button Content="Thu nhỏ" Margin="2,0,2,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnMinimize_Click" />
+                    <Button Content="Ẩn khay" Margin="2,0,2,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnHide_Click" />
+                    <Button Content="Thoát" Margin="4,0,0,0" Height="30" Style="{StaticResource ModernBtn}" Background="#3A1C1C" BorderBrush="#5C2626" Click="BtnExit_Click" />
+                </UniformGrid>
+            </Grid>
         </Border>
     </Grid>
 </Window>

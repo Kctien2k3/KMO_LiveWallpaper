@@ -76,6 +76,30 @@ namespace KMO_LiveWallpaper
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
+        public const int GWL_STYLE = -16;
+        public const int GWL_EXSTYLE = -20;
+        public const uint WS_CHILD = 0x40000000;
+        public const uint WS_POPUP = 0x80000000;
+        public const uint WS_EX_TRANSPARENT = 0x00000020;
+        public const uint WS_EX_TOOLWINDOW = 0x00000080;
+        public const uint SWP_NOZORDER = 0x0004;
+        public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_SHOWWINDOW = 0x0040;
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
@@ -87,33 +111,63 @@ namespace KMO_LiveWallpaper
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
 
+        public static string GetWindowClassName(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return string.Empty;
+            var sb = new StringBuilder(256);
+            GetClassName(hWnd, sb, 256);
+            return sb.ToString();
+        }
+
         /// <summary>
         /// Tìm hoặc tạo WorkerW nằm ngay sau biểu tượng Desktop (SHELLDLL_DefView).
-        /// Đây là cơ chế kinh điển của Wallpaper Engine & Lively Wallpaper trên Windows.
         /// </summary>
         public static IntPtr GetDesktopWorkerW()
         {
             IntPtr progman = FindWindow("Progman", null);
-            if (progman == IntPtr.Zero) return IntPtr.Zero;
+            if (progman == IntPtr.Zero)
+            {
+                progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
+            }
 
-            // Gửi message 0x052C để Windows Explorer tách WorkerW ra phía sau các icon desktop
-            SendMessageTimeout(progman, WM_SPAWN_WORKER, new IntPtr(0xD), new IntPtr(0x1), SMTO_NORMAL, 1000, out _);
+            if (progman != IntPtr.Zero)
+            {
+                SendMessageTimeout(progman, WM_SPAWN_WORKER, new IntPtr(0xD), new IntPtr(0x1), SMTO_NORMAL, 1000, out _);
+                SendMessageTimeout(progman, WM_SPAWN_WORKER, IntPtr.Zero, IntPtr.Zero, SMTO_NORMAL, 1000, out _);
+            }
 
             IntPtr workerw = IntPtr.Zero;
 
-            // Duyệt danh sách cửa sổ để tìm WorkerW chứa SHELLDLL_DefView
+            // Tìm WorkerW nằm ngay sau cửa sổ chứa SHELLDLL_DefView
             EnumWindows((toplevelHandle, param) =>
             {
                 IntPtr shellView = FindWindowEx(toplevelHandle, IntPtr.Zero, "SHELLDLL_DefView", null);
                 if (shellView != IntPtr.Zero)
                 {
-                    // WorkerW hiển thị phía sau SHELLDLL_DefView chính là cửa sổ kế tiếp
                     workerw = FindWindowEx(IntPtr.Zero, toplevelHandle, "WorkerW", null);
                 }
                 return true;
             }, IntPtr.Zero);
 
-            // Trường hợp không tìm thấy WorkerW thứ hai, trả về chính Progman làm fallback an toàn
+            // Fallback: Tìm WorkerW độc lập không chứa SHELLDLL_DefView (WorkerW tầng nền)
+            if (workerw == IntPtr.Zero)
+            {
+                EnumWindows((top, param) =>
+                {
+                    string cls = GetWindowClassName(top);
+                    if (cls == "WorkerW")
+                    {
+                        IntPtr defView = FindWindowEx(top, IntPtr.Zero, "SHELLDLL_DefView", null);
+                        if (defView == IntPtr.Zero)
+                        {
+                            workerw = top;
+                            return false;
+                        }
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+
             return workerw != IntPtr.Zero ? workerw : progman;
         }
 
