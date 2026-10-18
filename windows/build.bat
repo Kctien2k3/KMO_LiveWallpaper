@@ -4,6 +4,14 @@ echo ==================================================
 echo   BIÊN DỊCH KMO_LiveWallpaper CHO WINDOWS (x64)
 echo ==================================================
 
+if exist "%USERPROFILE%\tools\dotnet\dotnet.exe" (
+    set "PATH=%USERPROFILE%\tools\dotnet;%PATH%"
+    set "DOTNET_ROOT=%USERPROFILE%\tools\dotnet"
+) else if exist "%LOCALAPPDATA%\Microsoft\dotnet\dotnet.exe" (
+    set "PATH=%LOCALAPPDATA%\Microsoft\dotnet;%PATH%"
+    set "DOTNET_ROOT=%LOCALAPPDATA%\Microsoft\dotnet"
+)
+
 where dotnet >nul 2>nul
 if %errorlevel% neq 0 (
     echo [LỖI] Chưa cài đặt .NET SDK trên máy tính này.

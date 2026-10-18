@@ -2,6 +2,14 @@
 chcp 65001 >nul
 setlocal
 
+if exist "%USERPROFILE%\tools\dotnet\dotnet.exe" (
+    set "PATH=%USERPROFILE%\tools\dotnet;%PATH%"
+    set "DOTNET_ROOT=%USERPROFILE%\tools\dotnet"
+) else if exist "%LOCALAPPDATA%\Microsoft\dotnet\dotnet.exe" (
+    set "PATH=%LOCALAPPDATA%\Microsoft\dotnet;%PATH%"
+    set "DOTNET_ROOT=%LOCALAPPDATA%\Microsoft\dotnet"
+)
+
 echo ==================================================
 echo   CÀI ĐẶT ỨNG DỤNG KMO_LiveWallpaper (WINDOWS)
 echo ==================================================
