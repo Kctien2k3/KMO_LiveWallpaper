@@ -10,15 +10,19 @@
         Topmost="False"
         ShowActivated="False">
     <Grid Background="Black" ClipToBounds="True">
-        <MediaElement x:Name="Player"
-                      LoadedBehavior="Manual"
-                      UnloadedBehavior="Manual"
-                      ScrubbingEnabled="False"
-                      Stretch="UniformToFill"
-                      IsMuted="True"
-                      RenderOptions.BitmapScalingMode="HighQuality"
-                      MediaOpened="Player_MediaOpened"
-                      MediaEnded="Player_MediaEnded"
-                      MediaFailed="Player_MediaFailed" />
+        <Viewbox x:Name="PlayerViewbox" Stretch="Fill">
+            <Grid x:Name="PlayerContainer">
+                <MediaElement x:Name="Player"
+                              LoadedBehavior="Manual"
+                              UnloadedBehavior="Manual"
+                              ScrubbingEnabled="False"
+                              Stretch="UniformToFill"
+                              IsMuted="True"
+                              RenderOptions.BitmapScalingMode="HighQuality"
+                              MediaOpened="Player_MediaOpened"
+                              MediaEnded="Player_MediaEnded"
+                              MediaFailed="Player_MediaFailed" />
+            </Grid>
+        </Viewbox>
     </Grid>
 </Window>

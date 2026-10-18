@@ -48,6 +48,11 @@ namespace KMO_LiveWallpaper
         public bool IsUserPaused => _userPaused;
 
         public event Action? StateChanged;
+        public event Action<int, int, TimeSpan>? VideoInfoUpdated;
+
+        public int CurrentVideoWidth { get; private set; }
+        public int CurrentVideoHeight { get; private set; }
+        public TimeSpan CurrentVideoDuration { get; private set; }
 
         private string ConfigFilePath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -189,7 +194,15 @@ namespace KMO_LiveWallpaper
                 var win = new WallpaperWindow(screen);
                 win.SetMuted(_config.IsMuted);
                 win.SetStretchMode(_config.StretchMode);
+                win.SetResolutionMode(_config.ResolutionMode);
                 win.ApplyTransform(_config.ZoomScale, _config.OffsetX, _config.OffsetY);
+                win.VideoOpened += (w, h, dur) =>
+                {
+                    CurrentVideoWidth = w;
+                    CurrentVideoHeight = h;
+                    CurrentVideoDuration = dur;
+                    VideoInfoUpdated?.Invoke(w, h, dur);
+                };
                 win.Show();
                 win.LoadVideo(_config.VideoPath);
                 _wallpaperWindows.Add(win);
@@ -203,6 +216,17 @@ namespace KMO_LiveWallpaper
             _config.VideoPath = filePath;
             SaveConfig();
             InitializeDisplays();
+        }
+
+        public void SetResolutionMode(int mode)
+        {
+            _config.ResolutionMode = Math.Max(0, Math.Min(2, mode));
+            SaveConfig();
+            foreach (var win in _wallpaperWindows)
+            {
+                win.SetResolutionMode(_config.ResolutionMode);
+            }
+            StateChanged?.Invoke();
         }
 
         public void TogglePlayPause()
@@ -545,6 +569,74 @@ namespace KMO_LiveWallpaper
                 shortcut.Save();
             }
             catch { }
+        }
+
+        public static (TimeSpan Duration, int Width, int Height) GetVideoMetadata(string filePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                    return (TimeSpan.Zero, 0, 0);
+
+                var shellType = Type.GetTypeFromProgID("Shell.Application");
+                if (shellType != null)
+                {
+                    dynamic shell = Activator.CreateInstance(shellType)!;
+                    string dir = Path.GetDirectoryName(filePath) ?? "";
+                    string file = Path.GetFileName(filePath);
+                    var folder = shell.Namespace(dir);
+                    if (folder == null) return (TimeSpan.Zero, 0, 0);
+                    var folderItem = folder.ParseName(file);
+
+                    if (folderItem != null)
+                    {
+                        TimeSpan duration = TimeSpan.Zero;
+                        int width = 0, height = 0;
+
+                        for (int i = 0; i < 320; i++)
+                        {
+                            string header = folder.GetDetailsOf(null, i) ?? "";
+                            if ((header.IndexOf("length", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 header.IndexOf("duration", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 header.IndexOf("thời lượng", StringComparison.OrdinalIgnoreCase) >= 0) && duration == TimeSpan.Zero)
+                            {
+                                string val = folder.GetDetailsOf(folderItem, i) ?? "";
+                                if (TimeSpan.TryParse(val, out var ts))
+                                {
+                                    duration = ts;
+                                }
+                            }
+
+                            if ((header.IndexOf("width", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 header.IndexOf("chiều rộng", StringComparison.OrdinalIgnoreCase) >= 0) && width == 0)
+                            {
+                                string val = folder.GetDetailsOf(folderItem, i) ?? "";
+                                val = System.Text.RegularExpressions.Regex.Replace(val, @"[^\d]", "");
+                                if (int.TryParse(val, out var w)) width = w;
+                            }
+
+                            if ((header.IndexOf("height", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 header.IndexOf("chiều cao", StringComparison.OrdinalIgnoreCase) >= 0) && height == 0)
+                            {
+                                string val = folder.GetDetailsOf(folderItem, i) ?? "";
+                                val = System.Text.RegularExpressions.Regex.Replace(val, @"[^\d]", "");
+                                if (int.TryParse(val, out var h)) height = h;
+                            }
+
+                            if (duration != TimeSpan.Zero && width > 0 && height > 0)
+                                break;
+                        }
+
+                        return (duration, width, height);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[WallpaperManager] GetVideoMetadata error: {ex.Message}");
+            }
+
+            return (TimeSpan.Zero, 0, 0);
         }
 
         public void Shutdown()

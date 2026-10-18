@@ -15,7 +15,16 @@ namespace KMO_LiveWallpaper
         private double _offsetX = 0;
         private double _offsetY = 0;
 
+        private int _resolutionMode = 2; // 0: 1080p, 1: 2K, 2: 4K
+        private int _nativeVideoWidth = 0;
+        private int _nativeVideoHeight = 0;
+
+        public event Action<int, int, TimeSpan>? VideoOpened;
+
         public bool IsPlaying => _isPlaying;
+        public int NativeVideoWidth => _nativeVideoWidth;
+        public int NativeVideoHeight => _nativeVideoHeight;
+        public TimeSpan VideoDuration => Player.NaturalDuration.HasTimeSpan ? Player.NaturalDuration.TimeSpan : TimeSpan.Zero;
 
         public WallpaperWindow(Screen screen)
         {
@@ -125,14 +134,55 @@ namespace KMO_LiveWallpaper
             };
         }
 
+        public void SetResolutionMode(int mode)
+        {
+            _resolutionMode = Math.Max(0, Math.Min(2, mode));
+            ApplyResolutionLayout();
+        }
+
+        private void ApplyResolutionLayout()
+        {
+            int targetW, targetH;
+            switch (_resolutionMode)
+            {
+                case 0:
+                    targetW = 1920;
+                    targetH = 1080;
+                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.LowQuality);
+                    break;
+                case 1:
+                    targetW = 2560;
+                    targetH = 1440;
+                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.HighQuality);
+                    break;
+                default:
+                    targetW = _nativeVideoWidth > 0 ? _nativeVideoWidth : 3840;
+                    targetH = _nativeVideoHeight > 0 ? _nativeVideoHeight : 2160;
+                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.HighQuality);
+                    break;
+            }
+
+            if (PlayerContainer != null)
+            {
+                PlayerContainer.Width = targetW;
+                PlayerContainer.Height = targetH;
+                App.Log($"[WallpaperWindow] SetResolutionMode: {_resolutionMode} -> Container={targetW}x{targetH}, ScalingMode={RenderOptions.GetBitmapScalingMode(Player)}");
+            }
+
+            ApplyTransform(_zoom, _offsetX, _offsetY);
+        }
+
         public void ApplyTransform(double zoom, double offsetX, double offsetY)
         {
             _zoom = Math.Max(0.5, Math.Min(2.0, zoom));
             _offsetX = offsetX;
             _offsetY = offsetY;
 
+            double w = (PlayerContainer != null && PlayerContainer.Width > 0) ? PlayerContainer.Width : Width;
+            double h = (PlayerContainer != null && PlayerContainer.Height > 0) ? PlayerContainer.Height : Height;
+
             var transformGroup = new TransformGroup();
-            transformGroup.Children.Add(new ScaleTransform(_zoom, _zoom, Width / 2.0, Height / 2.0));
+            transformGroup.Children.Add(new ScaleTransform(_zoom, _zoom, w / 2.0, h / 2.0));
             transformGroup.Children.Add(new TranslateTransform(_offsetX, _offsetY));
             Player.RenderTransform = transformGroup;
         }
@@ -143,7 +193,7 @@ namespace KMO_LiveWallpaper
             Top = screen.Bounds.Top;
             Width = screen.Bounds.Width;
             Height = screen.Bounds.Height;
-            ApplyTransform(_zoom, _offsetX, _offsetY);
+            ApplyResolutionLayout();
 
             if (_hWnd != IntPtr.Zero)
             {
@@ -161,13 +211,18 @@ namespace KMO_LiveWallpaper
 
         private void Player_MediaOpened(object sender, RoutedEventArgs e)
         {
-            App.Log($"[WallpaperWindow] MediaOpened successfully: Duration={Player.NaturalDuration}, Video={Player.NaturalVideoWidth}x{Player.NaturalVideoHeight}");
+            _nativeVideoWidth = Player.NaturalVideoWidth;
+            _nativeVideoHeight = Player.NaturalVideoHeight;
+            var duration = Player.NaturalDuration.HasTimeSpan ? Player.NaturalDuration.TimeSpan : TimeSpan.Zero;
+            App.Log($"[WallpaperWindow] MediaOpened successfully: Duration={duration}, Video={_nativeVideoWidth}x{_nativeVideoHeight}");
             _isPlaying = true;
+            ApplyResolutionLayout();
+            VideoOpened?.Invoke(_nativeVideoWidth, _nativeVideoHeight, duration);
         }
 
         private void Player_MediaEnded(object sender, RoutedEventArgs e)
         {
-            // Lặp vô tận mượt mà: tua về 0 và tiếp tục phát
+            // Lặp vô tận mượt mà: tua về 0 và tiếp tục phát ngay lập tức theo độ dài của video
             try
             {
                 Player.Position = TimeSpan.Zero;

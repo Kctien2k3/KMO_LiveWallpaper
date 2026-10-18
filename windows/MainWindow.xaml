@@ -38,6 +38,21 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="RadioButton" x:Key="QualityRadioBtn">
+            <Setter Property="Foreground" Value="#DDDDDD" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="#4CC2FF" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.28" />
+                    <Setter Property="Foreground" Value="#666666" />
+                    <Setter Property="Cursor" Value="No" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -74,9 +89,9 @@
                         <DockPanel Margin="0,2,0,2">
                             <TextBlock Text="✨ Chất lượng" VerticalAlignment="Center" FontSize="13" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <RadioButton x:Name="Rb1080p" Content="1080p" GroupName="Res" Margin="0,0,10,0" Foreground="#DDDDDD" Checked="Resolution_Checked" />
-                                <RadioButton x:Name="Rb2k" Content="2K QHD" GroupName="Res" Margin="0,0,10,0" Foreground="#DDDDDD" Checked="Resolution_Checked" />
-                                <RadioButton x:Name="Rb4k" Content="4K Gốc" GroupName="Res" IsChecked="True" Foreground="#4CC2FF" FontWeight="SemiBold" Checked="Resolution_Checked" />
+                                <RadioButton x:Name="Rb1080p" Content="1080p" GroupName="Res" Margin="0,0,10,0" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
+                                <RadioButton x:Name="Rb2k" Content="2K QHD" GroupName="Res" Margin="0,0,10,0" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
+                                <RadioButton x:Name="Rb4k" Content="4K Gốc" GroupName="Res" IsChecked="True" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
                             </StackPanel>
                         </DockPanel>
                     </StackPanel>
