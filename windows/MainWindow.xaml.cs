@@ -5,6 +5,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
+using Color = System.Windows.Media.Color;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace KMO_LiveWallpaper
 {

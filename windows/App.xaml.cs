@@ -14,30 +14,58 @@ namespace KMO_LiveWallpaper
         private NotifyIcon? _trayIcon;
         private MainWindow? _mainWindow;
 
+        private static readonly string LogPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "KMO_LiveWallpaper", "app.log");
+
+        public static void Log(string msg)
+        {
+            try { System.IO.File.AppendAllText(LogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\r\n"); } catch {}
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+            {
+                Log($"[CRASH AppDomain] {args.ExceptionObject}");
+            };
+
+            DispatcherUnhandledException += (s, args) =>
+            {
+                Log($"[CRASH Dispatcher] {args.Exception}");
+                args.Handled = true;
+            };
+
+            Log("Application starting...");
 
             // Kiểm tra Single Instance (chỉ cho phép 1 app chạy duy nhất)
             _mutex = new Mutex(true, "KMO_LiveWallpaper_SingleInstance_Mutex", out bool createdNew);
             if (!createdNew)
             {
+                Log("Another instance already running. Exiting.");
                 MessageBox.Show("Ứng dụng KMO_LiveWallpaper đang chạy trong khay hệ thống!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
                 Shutdown();
                 return;
             }
 
+            Log("Mutex acquired. Setting up Tray Icon...");
             // Khởi tạo khay hệ thống (System Tray Icon)
             SetupTrayIcon();
 
+            Log("Creating MainWindow...");
             // Khởi tạo cửa sổ cài đặt
             _mainWindow = new MainWindow();
 
+            Log("Initializing displays...");
             // Khởi động các màn hình hiển thị video
             WallpaperManager.Instance.InitializeDisplays();
 
+            Log("Showing MainWindow...");
             // Hiển thị cửa sổ cài đặt lần đầu
             _mainWindow.Show();
+            Log("Startup complete.");
         }
 
         private void SetupTrayIcon()
@@ -134,8 +162,9 @@ namespace KMO_LiveWallpaper
 
         protected override void OnExit(ExitEventArgs e)
         {
-            _mutex?.ReleaseMutex();
-            _mutex?.Dispose();
+            Log($"Application exiting with code {e.ApplicationExitCode}");
+            try { _mutex?.ReleaseMutex(); } catch {}
+            try { _mutex?.Dispose(); } catch {}
             base.OnExit(e);
         }
     }

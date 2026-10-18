@@ -195,8 +195,17 @@ namespace KMO_LiveWallpaper
 
         private void OnMonitorTick(object? sender, EventArgs e)
         {
-            UpdatePlaybackState();
-            CheckResourceCeiling();
+            try
+            {
+                App.Log("[Tick] OnMonitorTick starting...");
+                UpdatePlaybackState();
+                CheckResourceCeiling();
+                App.Log("[Tick] OnMonitorTick completed.");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[Tick ERROR] {ex}");
+            }
         }
 
         private void CheckResourceCeiling()
@@ -245,13 +254,13 @@ namespace KMO_LiveWallpaper
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            if (e.PowerModes == PowerModes.Suspend)
+            if (e.Mode == PowerModes.Suspend)
             {
                 _isSuspended = true;
                 PauseAll();
                 CompactMemoryIfNeeded();
             }
-            else if (e.PowerModes == PowerModes.Resume)
+            else if (e.Mode == PowerModes.Resume)
             {
                 _isSuspended = false;
                 UpdatePlaybackState();
