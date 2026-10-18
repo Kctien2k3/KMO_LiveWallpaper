@@ -138,6 +138,14 @@ namespace KMO_LiveWallpaper
         {
             _resolutionMode = Math.Max(0, Math.Min(2, mode));
             ApplyResolutionLayout();
+
+            // Hiệu ứng chuyển cảnh mượt mà xác nhận chế độ phân giải mới đã kích hoạt
+            try
+            {
+                var anim = new System.Windows.Media.Animation.DoubleAnimation(0.75, 1.0, TimeSpan.FromMilliseconds(200));
+                Player.BeginAnimation(UIElement.OpacityProperty, anim);
+            }
+            catch { }
         }
 
         private void ApplyResolutionLayout()
@@ -149,16 +157,19 @@ namespace KMO_LiveWallpaper
                     targetW = 1920;
                     targetH = 1080;
                     RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.LowQuality);
+                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.LowQuality);
                     break;
                 case 1:
                     targetW = 2560;
                     targetH = 1440;
-                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.HighQuality);
+                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.Linear);
+                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.Linear);
                     break;
                 default:
                     targetW = _nativeVideoWidth > 0 ? _nativeVideoWidth : 3840;
                     targetH = _nativeVideoHeight > 0 ? _nativeVideoHeight : 2160;
                     RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.HighQuality);
+                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.HighQuality);
                     break;
             }
 

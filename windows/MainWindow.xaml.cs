@@ -42,35 +42,51 @@ namespace KMO_LiveWallpaper
                 string videoPath = WallpaperManager.Instance.Config.VideoPath;
                 string fileName = string.IsNullOrEmpty(videoPath) ? "Chưa chọn video" : Path.GetFileName(videoPath);
 
-                string resTag = (width >= 3840 || height >= 2160) ? "4K"
-                              : (width >= 2560 || height >= 1440) ? "2K"
-                              : (width > 0) ? "1080p" : "";
+                TxtVideoName.Text = fileName;
+                TxtVideoName.ToolTip = $"Tệp: {fileName}\nĐộ phân giải gốc: {width}x{height}\nThời lượng: {duration:mm\\:ss}";
 
-                if (duration > TimeSpan.Zero)
-                {
-                    TxtVideoName.Text = string.IsNullOrEmpty(resTag)
-                        ? $"{fileName} ({duration:mm\\:ss})"
-                        : $"{fileName} • {resTag} ({duration:mm\\:ss})";
-                    TxtVideoName.ToolTip = $"Tệp: {fileName}\nĐộ phân giải gốc: {width}x{height}\nThời lượng: {duration:mm\\:ss}";
-                }
-                else
-                {
-                    TxtVideoName.Text = fileName;
-                    TxtVideoName.ToolTip = fileName;
-                }
-
-                // Nhận diện mức chất lượng hỗ trợ dựa trên độ phân giải gốc của video
                 bool supports4k = (width >= 3840 || height >= 2160);
                 bool supports2k = (width >= 2560 || height >= 1440);
                 bool supports1080p = true; // 1080p luôn khả dụng
 
-                Rb4k.IsEnabled = supports4k;
-                Rb2k.IsEnabled = supports2k;
-                Rb1080p.IsEnabled = supports1080p;
+                // Cập nhật thông tin kỹ thuật gốc
+                if (width > 0 && height > 0)
+                {
+                    string resCategory = supports4k ? "4K UHD" : supports2k ? "2K QHD" : "1080p Full HD";
+                    TxtNativeResInfo.Text = $"{width}x{height} ({resCategory}) • {(duration > TimeSpan.Zero ? $"{duration:mm\\:ss}" : "<60s")}";
+                    TxtNativeResInfo.Foreground = supports4k ? new SolidColorBrush(Color.FromRgb(76, 194, 255))
+                                                : supports2k ? new SolidColorBrush(Color.FromRgb(255, 159, 10))
+                                                : new SolidColorBrush(Color.FromRgb(50, 215, 75));
 
-                Rb4k.ToolTip = supports4k ? "Phát ở độ phân giải 4K gốc (3840x2160)" : "Video gốc không đủ độ phân giải 4K";
-                Rb2k.ToolTip = supports2k ? "Phát ở độ phân giải 2K QHD (2560x1440)" : "Video gốc không đủ độ phân giải 2K";
+                    if (supports4k)
+                    {
+                        TxtSupportedModesInfo.Text = "Khả dụng: 1080p, 2K, 4K";
+                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75));
+                    }
+                    else if (supports2k)
+                    {
+                        TxtSupportedModesInfo.Text = "Khả dụng: 1080p, 2K (Khóa 4K)";
+                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10));
+                    }
+                    else
+                    {
+                        TxtSupportedModesInfo.Text = "Khả dụng: Chỉ 1080p (Khóa 2K, 4K)";
+                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(255, 69, 58));
+                    }
+                }
+
+                // Cập nhật trạng thái và nhãn của 3 nút lựa chọn chất lượng
+                Rb1080p.IsEnabled = supports1080p;
+                Rb2k.IsEnabled = supports2k;
+                Rb4k.IsEnabled = supports4k;
+
+                Rb1080p.Content = "1080p";
+                Rb2k.Content = supports2k ? "2K QHD" : "2K (Khóa 🔒)";
+                Rb4k.Content = supports4k ? "4K Gốc" : "4K (Khóa 🔒)";
+
                 Rb1080p.ToolTip = "Phát ở độ phân giải 1080p Full HD";
+                Rb2k.ToolTip = supports2k ? "Phát ở độ phân giải 2K QHD (2560x1440)" : "Video gốc không đủ độ phân giải 2K (bị khóa)";
+                Rb4k.ToolTip = supports4k ? "Phát ở độ phân giải 4K gốc (3840x2160)" : "Video gốc không đủ độ phân giải 4K (bị khóa)";
 
                 // Tự động điều chỉnh chế độ nếu chế độ hiện tại vượt quá chất lượng video gốc
                 int currentMode = WallpaperManager.Instance.Config.ResolutionMode;
@@ -89,8 +105,28 @@ namespace KMO_LiveWallpaper
                 Rb4k.IsChecked = (currentMode == 2);
                 _isInitializing = false;
 
+                UpdateQualityNotice(currentMode);
                 WallpaperManager.Instance.SetResolutionMode(currentMode);
             });
+        }
+
+        private void UpdateQualityNotice(int mode)
+        {
+            switch (mode)
+            {
+                case 0:
+                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 1080p (Tiết kiệm GPU • 1920x1080)";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75));
+                    break;
+                case 1:
+                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 2K QHD (Cân bằng độ nét • 2560x1440)";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10));
+                    break;
+                default:
+                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 4K Gốc (Sắc nét tối đa • 3840x2160)";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(76, 194, 255));
+                    break;
+            }
         }
 
         private void LoadAppAssets()
@@ -250,6 +286,7 @@ namespace KMO_LiveWallpaper
             if (Rb1080p.IsChecked == true) mode = 0;
             else if (Rb2k.IsChecked == true) mode = 1;
 
+            UpdateQualityNotice(mode);
             WallpaperManager.Instance.SetResolutionMode(mode);
             OnWallpaperStateChanged();
         }

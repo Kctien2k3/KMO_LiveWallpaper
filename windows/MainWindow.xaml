@@ -85,15 +85,34 @@
                             <TextBlock x:Name="TxtVideoName" Text="Chưa chọn video" Foreground="#AAAAAA"
                                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" MaxWidth="220" />
                         </DockPanel>
-                        <Separator Background="#333333" Margin="0,4,0,8" />
+
+                        <!-- Khung thông tin kỹ thuật video gốc -->
+                        <Border Background="#1C1C1E" CornerRadius="6" Padding="10,6" Margin="0,0,0,8" BorderBrush="#333333" BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Gốc:" Foreground="#888888" FontSize="11.5" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock x:Name="TxtNativeResInfo" Text="3840x2160 (4K UHD) • 14s" Foreground="#4CC2FF" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock x:Name="TxtSupportedModesInfo" Grid.Column="1" Text="Khả dụng: 1080p, 2K, 4K" Foreground="#32D74B" FontSize="11" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+
+                        <Separator Background="#333333" Margin="0,2,0,8" />
                         <DockPanel Margin="0,2,0,2">
-                            <TextBlock Text="✨ Chất lượng" VerticalAlignment="Center" FontSize="13" />
+                            <TextBlock Text="✨ Chất lượng phát" VerticalAlignment="Center" FontSize="13" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <RadioButton x:Name="Rb1080p" Content="1080p" GroupName="Res" Margin="0,0,10,0" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
                                 <RadioButton x:Name="Rb2k" Content="2K QHD" GroupName="Res" Margin="0,0,10,0" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
                                 <RadioButton x:Name="Rb4k" Content="4K Gốc" GroupName="Res" IsChecked="True" Style="{StaticResource QualityRadioBtn}" Checked="Resolution_Checked" />
                             </StackPanel>
                         </DockPanel>
+
+                        <!-- Dòng xác nhận chất lượng đang phát thực tế -->
+                        <TextBlock x:Name="TxtQualityNotice" Text="Đang phát ở chất lượng: 4K Gốc" Foreground="#4CC2FF" FontSize="11" HorizontalAlignment="Right" Margin="0,4,0,2" />
                     </StackPanel>
                 </Border>
 
