@@ -134,6 +134,13 @@
 
                         <Separator Background="#333333" Margin="0,4,0,8" />
 
+                        <DockPanel Margin="0,2,0,8">
+                            <TextBlock Text="🚀 Tự khởi động khi đăng nhập Windows" VerticalAlignment="Center" FontSize="12.5" />
+                            <CheckBox x:Name="CbAutoLaunchStartup" IsChecked="True" HorizontalAlignment="Right" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
+                        </DockPanel>
+
+                        <Separator Background="#333333" Margin="0,4,0,8" />
+
                         <DockPanel Margin="0,2,0,2">
                             <TextBlock Text="🔇 Tắt âm thanh video" VerticalAlignment="Center" FontSize="12.5" />
                             <CheckBox x:Name="CbMute" IsChecked="True" HorizontalAlignment="Right" Checked="CbMute_Changed" Unchecked="CbMute_Changed" />

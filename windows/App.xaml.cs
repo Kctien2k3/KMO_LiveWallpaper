@@ -194,6 +194,17 @@ namespace KMO_LiveWallpaper
             };
             contextMenu.Items.Add(ceilingItem);
 
+            var startupItem = new ToolStripMenuItem("Tự khởi động khi đăng nhập Windows")
+            {
+                Checked = WallpaperManager.Instance.IsAutoLaunchStartupEnabled(),
+                CheckOnClick = true
+            };
+            startupItem.Click += (s, e) =>
+            {
+                WallpaperManager.Instance.SetAutoLaunchStartup(startupItem.Checked);
+            };
+            contextMenu.Items.Add(startupItem);
+
             contextMenu.Items.Add(new ToolStripSeparator());
 
             var playPauseItem = new ToolStripMenuItem("Tạm dừng / Phát tiếp");

@@ -75,6 +75,7 @@ namespace KMO_LiveWallpaper
             // Toggles
             CbAutoPause90.IsChecked = cfg.AutoPause90Enabled;
             CbCeiling.IsChecked = cfg.CeilingEnabled;
+            CbAutoLaunchStartup.IsChecked = WallpaperManager.Instance.IsAutoLaunchStartupEnabled();
             CbMute.IsChecked = cfg.IsMuted;
 
             // Resolution
@@ -202,6 +203,12 @@ namespace KMO_LiveWallpaper
         {
             if (_isInitializing) return;
             WallpaperManager.Instance.SetCeilingEnabled(CbCeiling.IsChecked == true);
+        }
+
+        private void CbAutoLaunchStartup_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            WallpaperManager.Instance.SetAutoLaunchStartup(CbAutoLaunchStartup.IsChecked == true);
         }
 
         private void CbMute_Changed(object sender, RoutedEventArgs e)

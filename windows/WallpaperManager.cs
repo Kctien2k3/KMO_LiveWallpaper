@@ -20,6 +20,7 @@ namespace KMO_LiveWallpaper
         public bool CeilingEnabled { get; set; } = true;
         public bool IsMuted { get; set; } = true;
         public int ResolutionMode { get; set; } = 2; // 0: 1080p, 1: 2K, 2: 4K
+        public bool AutoLaunchStartup { get; set; } = true;
     }
 
     public class WallpaperManager
@@ -74,6 +75,12 @@ namespace KMO_LiveWallpaper
                 0,
                 Win32.WINEVENT_OUTOFCONTEXT | Win32.WINEVENT_SKIPOWNPROCESS
             );
+
+            // Tự động kiểm tra và đăng ký khởi động cùng Windows nếu bật
+            if (_config.AutoLaunchStartup)
+            {
+                SetAutoLaunchStartup(true);
+            }
 
             // Timer kiểm tra tài nguyên và che phủ định kỳ (1.5 giây) làm dự phòng
             _monitorTimer = new DispatcherTimer
@@ -448,6 +455,94 @@ namespace KMO_LiveWallpaper
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(ConfigFilePath, json);
+            }
+            catch { }
+        }
+
+        public bool IsAutoLaunchStartupEnabled()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
+                if (key?.GetValue("KMO_LiveWallpaper") != null) return true;
+
+                string startupShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
+                    "KMO Live Wallpaper.lnk");
+                return File.Exists(startupShortcut);
+            }
+            catch
+            {
+                return _config.AutoLaunchStartup;
+            }
+        }
+
+        public void SetAutoLaunchStartup(bool enable)
+        {
+            try
+            {
+                _config.AutoLaunchStartup = enable;
+                SaveConfig();
+
+                string installedExe = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KMO_LiveWallpaper", "KMO_LiveWallpaper.exe");
+                string exePath = File.Exists(installedExe) ? installedExe : (Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "");
+
+                // 1. Ghi Registry Run
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                if (key != null)
+                {
+                    if (enable)
+                    {
+                        if (!string.IsNullOrEmpty(exePath))
+                        {
+                            key.SetValue("KMO_LiveWallpaper", $"\"{exePath}\" --background");
+                        }
+                    }
+                    else
+                    {
+                        key.DeleteValue("KMO_LiveWallpaper", false);
+                    }
+                }
+
+                // 2. Đồng bộ phím tắt trong thư mục Startup
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string shortcutPath = Path.Combine(startupFolder, "KMO Live Wallpaper.lnk");
+                if (enable)
+                {
+                    if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+                    {
+                        CreateStartupShortcut(shortcutPath, exePath);
+                    }
+                }
+                else
+                {
+                    if (File.Exists(shortcutPath))
+                    {
+                        File.Delete(shortcutPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[SetAutoLaunchStartup ERROR] {ex.Message}");
+            }
+        }
+
+        private static void CreateStartupShortcut(string shortcutPath, string targetExe)
+        {
+            try
+            {
+                Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+                if (shellType == null) return;
+                dynamic shell = Activator.CreateInstance(shellType)!;
+                dynamic shortcut = shell.CreateShortcut(shortcutPath);
+                shortcut.TargetPath = targetExe;
+                shortcut.Arguments = "--background";
+                shortcut.WorkingDirectory = Path.GetDirectoryName(targetExe);
+                shortcut.Description = "KMO Live Wallpaper";
+                shortcut.Save();
             }
             catch { }
         }
