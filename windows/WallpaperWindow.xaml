@@ -1,0 +1,22 @@
+<Window x:Class="KMO_LiveWallpaper.WallpaperWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KMO_LiveWallpaper_Desktop"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="Black"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="False"
+        ShowActivated="False">
+    <Grid Background="Black" ClipToBounds="True">
+        <MediaElement x:Name="Player"
+                      LoadedBehavior="Manual"
+                      UnloadedBehavior="Manual"
+                      ScrubbingEnabled="False"
+                      Stretch="UniformToFill"
+                      IsMuted="True"
+                      MediaEnded="Player_MediaEnded"
+                      MediaFailed="Player_MediaFailed" />
+    </Grid>
+</Window>
