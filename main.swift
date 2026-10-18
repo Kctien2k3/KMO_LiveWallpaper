@@ -62,7 +62,6 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var offsetYSlider: NSSlider?
     var offsetYValueLabel: NSTextField?
     var ceilingSwitch: NSSwitch?
-    var applyCeilingBtn: NSButton?
     var muteSwitch: NSSwitch?
     var launchAtLoginSwitch: NSSwitch?
     var playPauseBtn: NSButton?
@@ -132,7 +131,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overLimitStreak = 0
         graceUntil = Date().addingTimeInterval(3.0)
         if let targetURL = activeVideoURL {
-            updateResolutionSegments(for: targetURL)
+            updateResolutionSegments(for: targetURL, setDefaultToMax: true)
             resolveAndLoadVideo(originalURL: targetURL)
         }
     }
@@ -483,20 +482,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if !isControlWinOpen && Date() >= graceUntil {
                 if smoothedCPU > maxCPUPercent || mem > maxMemoryMB {
                     overLimitStreak += 1
-                    if overLimitStreak == 2 && resolutionMode > 0 {
-                        resolutionMode -= 1
-                        resSegment?.selectedSegment = resolutionMode
-                        UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
-                        overLimitStreak = 0
-                        graceUntil = Date().addingTimeInterval(3.0)
-                        for player in players {
-                            if let currentItem = player.currentItem {
-                                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
-                            }
-                        }
-                        refreshStatusLabels()
-                        return
-                    } else if overLimitStreak >= 3 {
+                    if overLimitStreak >= 5 {
                         pausedByCeiling = true
                         for player in players where player.rate != 0 {
                             player.pause()
@@ -551,57 +537,39 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    @objc func applyCeilingNow() {
-        ceilingEnabled = true
-        pausedByCeiling = false
-        overLimitStreak = 0
-        graceUntil = Date().addingTimeInterval(3.0)
-        ceilingSwitch?.state = .on
-        UserDefaults.standard.set(true, forKey: savedCeilingKey)
-        syncMenuCheckmarks()
-
-        for player in players {
-            player.currentItem?.preferredForwardBufferDuration = 0.35
-            if let currentItem = player.currentItem {
-                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
+    func applyCeilingSettings() {
+        if ceilingEnabled {
+            pausedByCeiling = false
+            overLimitStreak = 0
+            graceUntil = Date().addingTimeInterval(3.0)
+            for player in players {
+                player.currentItem?.preferredForwardBufferDuration = 0.35
+            }
+            malloc_zone_pressure_relief(nil, 0)
+        } else {
+            pausedByCeiling = false
+            overLimitStreak = 0
+            for player in players {
+                player.currentItem?.preferredForwardBufferDuration = 0.0
             }
         }
-        malloc_zone_pressure_relief(nil, 0)
         updatePlaybackState()
         refreshStatusLabels()
-
-        applyCeilingBtn?.title = "Đã áp dụng"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
-            self?.applyCeilingBtn?.title = "Áp dụng"
-        }
+        syncMenuCheckmarks()
     }
 
     @objc func toggleCeilingSwitch() {
         guard let sw = ceilingSwitch else { return }
         ceilingEnabled = (sw.state == .on)
         UserDefaults.standard.set(ceilingEnabled, forKey: savedCeilingKey)
-        if !ceilingEnabled {
-            pausedByCeiling = false
-            overLimitStreak = 0
-            updatePlaybackState()
-        } else {
-            applyCeilingNow()
-        }
-        syncMenuCheckmarks()
+        applyCeilingSettings()
     }
 
     @objc func toggleMenuCeiling() {
         ceilingEnabled.toggle()
         UserDefaults.standard.set(ceilingEnabled, forKey: savedCeilingKey)
         ceilingSwitch?.state = ceilingEnabled ? .on : .off
-        if !ceilingEnabled {
-            pausedByCeiling = false
-            overLimitStreak = 0
-            updatePlaybackState()
-        } else {
-            applyCeilingNow()
-        }
-        syncMenuCheckmarks()
+        applyCeilingSettings()
     }
 
     func setupMenuBar() {
@@ -818,14 +786,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         addRowDivider(to: card3, y: 112)
 
         addRowIcon("cpu", to: card3, y: 85)
-        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 250, height: 20), bold: false, size: 13))
-
-        applyCeilingBtn = NSButton(title: "Áp dụng", target: self, action: #selector(applyCeilingNow))
-        applyCeilingBtn?.bezelStyle = .rounded
-        applyCeilingBtn?.controlSize = .small
-        applyCeilingBtn?.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        applyCeilingBtn?.frame = NSRect(x: 300, y: 82, width: 76, height: 24)
-        card3.addSubview(applyCeilingBtn!)
+        card3.addSubview(makeLabel("Trần tối ưu ≤ 5% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
 
         ceilingSwitch = NSSwitch(frame: NSRect(x: 384, y: 82, width: 40, height: 22))
         ceilingSwitch?.state = ceilingEnabled ? .on : .off
@@ -954,7 +915,6 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         offsetYSlider = nil
         offsetYValueLabel = nil
         ceilingSwitch = nil
-        applyCeilingBtn = nil
         launchAtLoginSwitch = nil
         muteSwitch = nil
         playPauseBtn = nil
@@ -1111,7 +1071,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return comp
     }
 
-    func updateResolutionSegments(for url: URL) {
+    func updateResolutionSegments(for url: URL, setDefaultToMax: Bool = false) {
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: false])
         guard let track = asset.tracks(withMediaType: .video).first else { return }
         let natSize = track.naturalSize.applying(track.preferredTransform)
@@ -1120,15 +1080,15 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let maxDim = max(w, h)
         let minDim = min(w, h)
 
-        let can2k = (maxDim >= 2400 || minDim >= 1350)
-        let can4k = (maxDim >= 3600 || minDim >= 2000)
+        let can2k = (maxDim >= 2000 || minDim >= 1200)
+        let can4k = (maxDim >= 3200 || minDim >= 1800)
 
         resSegment?.setEnabled(true, forSegment: 0)
         resSegment?.setEnabled(can2k, forSegment: 1)
         resSegment?.setEnabled(can4k, forSegment: 2)
 
         let maxAllowed = can4k ? 2 : (can2k ? 1 : 0)
-        if resolutionMode > maxAllowed {
+        if setDefaultToMax || resolutionMode > maxAllowed {
             resolutionMode = maxAllowed
             resSegment?.selectedSegment = resolutionMode
             UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
@@ -1536,7 +1496,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             pausedByCeiling = false
             overLimitStreak = 0
             graceUntil = Date().addingTimeInterval(3.0)
-            updateResolutionSegments(for: url)
+            updateResolutionSegments(for: url, setDefaultToMax: true)
             resolveAndLoadVideo(originalURL: url)
         }
         malloc_zone_pressure_relief(nil, 0)
