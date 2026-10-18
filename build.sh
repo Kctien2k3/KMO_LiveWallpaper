@@ -7,6 +7,11 @@ APP_DIR="$SCRIPT_DIR/KMO_LiveWallpaper.app"
 echo "🚀 Đang biên dịch KMO_LiveWallpaper (Universal Binary: Apple Silicon M1/M2/M3/M4 + Intel)..."
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
+if [ -f "$SCRIPT_DIR/resources/default_wallpaper.mp4" ]; then
+    echo "📦 Đang nhúng video 4K mặc định vào ứng dụng..."
+    cp -f "$SCRIPT_DIR/resources/default_wallpaper.mp4" "$APP_DIR/Contents/Resources/default_wallpaper.mp4"
+fi
+
 cat > "$APP_DIR/Contents/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

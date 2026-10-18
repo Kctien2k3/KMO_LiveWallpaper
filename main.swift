@@ -92,6 +92,51 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return url
     }
 
+    var defaultBundledVideoURL: URL? {
+        if let url = Bundle.main.url(forResource: "default_wallpaper", withExtension: "mp4") {
+            return url
+        }
+        let direct = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/default_wallpaper.mp4")
+        if FileManager.default.fileExists(atPath: direct.path) {
+            return direct
+        }
+        let devURL = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("resources/default_wallpaper.mp4")
+        if FileManager.default.fileExists(atPath: devURL.path) {
+            return devURL
+        }
+        return nil
+    }
+
+    var activeVideoURL: URL? {
+        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
+           FileManager.default.fileExists(atPath: savedPath) {
+            return URL(fileURLWithPath: savedPath)
+        }
+        return defaultBundledVideoURL
+    }
+
+    func currentVideoDisplayName() -> String {
+        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
+           FileManager.default.fileExists(atPath: savedPath) {
+            return (savedPath as NSString).lastPathComponent
+        }
+        if defaultBundledVideoURL != nil {
+            return "Mặc định (4K UHD)"
+        }
+        return "Chưa chọn video"
+    }
+
+    @objc func useDefaultVideo() {
+        UserDefaults.standard.removeObject(forKey: savedVideoKey)
+        fileLabel?.stringValue = currentVideoDisplayName()
+        pausedByCeiling = false
+        overLimitStreak = 0
+        graceUntil = Date().addingTimeInterval(3.0)
+        if let targetURL = activeVideoURL {
+            resolveAndLoadVideo(originalURL: targetURL)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let isBackgroundLaunch = ProcessInfo.processInfo.arguments.contains("--background")
         if isBackgroundLaunch {
@@ -164,9 +209,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         dnc.addObserver(self, selector: #selector(screenSaverDidStart), name: NSNotification.Name("com.apple.screensaver.didstart"), object: nil)
         dnc.addObserver(self, selector: #selector(screenSaverDidStop), name: NSNotification.Name("com.apple.screensaver.didstop"), object: nil)
 
-        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
-           FileManager.default.fileExists(atPath: savedPath) {
-            resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+        if let targetURL = activeVideoURL {
+            resolveAndLoadVideo(originalURL: targetURL)
         }
 
         startCeilingMonitor()
@@ -445,9 +489,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
                         overLimitStreak = 0
                         graceUntil = Date().addingTimeInterval(3.0)
-                        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
-                           FileManager.default.fileExists(atPath: savedPath) {
-                            resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+                        if let targetURL = activeVideoURL {
+                            resolveAndLoadVideo(originalURL: targetURL)
                             return
                         }
                     } else if overLimitStreak >= 3 {
@@ -570,7 +613,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(NSMenuItem.separator())
 
         menu.addItem(NSMenuItem(title: "Mở cài đặt...", action: #selector(showControlWindow), keyEquivalent: "s"))
-        menu.addItem(NSMenuItem(title: "Chọn video...", action: #selector(chooseVideo), keyEquivalent: "o"))
+        menu.addItem(NSMenuItem(title: "Chọn video khác...", action: #selector(chooseVideo), keyEquivalent: "o"))
+        menu.addItem(NSMenuItem(title: "Dùng video 4K mặc định", action: #selector(useDefaultVideo), keyEquivalent: "d"))
         menu.addItem(NSMenuItem.separator())
 
         menuCeilingItem = NSMenuItem(title: "Giới hạn trần (≤ 5% CPU • ≤ 80MB RAM)", action: #selector(toggleMenuCeiling), keyEquivalent: "l")
@@ -666,7 +710,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         addRowIcon("film", to: card1, y: 55)
         card1.addSubview(makeLabel("Video nền", frame: NSRect(x: 40, y: 54, width: 85, height: 20), bold: false, size: 13))
 
-        let currentName = (UserDefaults.standard.string(forKey: savedVideoKey) as NSString?)?.lastPathComponent ?? "Chưa chọn video"
+        let currentName = currentVideoDisplayName()
         fileLabel = makeLabel(currentName, frame: NSRect(x: 130, y: 54, width: 194, height: 20), bold: false, size: 13, secondary: true)
         fileLabel?.lineBreakMode = .byTruncatingMiddle
         fileLabel?.alignment = .right
@@ -999,9 +1043,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overLimitStreak = 0
         graceUntil = Date().addingTimeInterval(3.0)
         UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
-        if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
-           FileManager.default.fileExists(atPath: savedPath) {
-            resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+        if let targetURL = activeVideoURL {
+            resolveAndLoadVideo(originalURL: targetURL)
         }
     }
 
@@ -1255,9 +1298,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             updatePlaybackState()
         } else {
             ensureDesktopInfrastructure()
-            if let savedPath = UserDefaults.standard.string(forKey: savedVideoKey),
-               FileManager.default.fileExists(atPath: savedPath) {
-                resolveAndLoadVideo(originalURL: URL(fileURLWithPath: savedPath))
+            if let targetURL = activeVideoURL {
+                resolveAndLoadVideo(originalURL: targetURL)
             }
         }
     }
