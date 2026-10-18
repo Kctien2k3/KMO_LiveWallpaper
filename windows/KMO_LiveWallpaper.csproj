@@ -23,5 +23,9 @@
   <ItemGroup>
     <Resource Include="app.ico" />
     <Resource Include="app.png" />
+    <EmbeddedResource Include="default.mp4" />
+    <None Update="default.mp4">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

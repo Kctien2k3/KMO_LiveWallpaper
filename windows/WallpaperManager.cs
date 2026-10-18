@@ -100,14 +100,81 @@ namespace KMO_LiveWallpaper
             _eventDebounceTimer.Start();
         }
 
+        public static string EnsureDefaultVideoAvailable()
+        {
+            try
+            {
+                string appDataDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KMO_LiveWallpaper");
+                if (!Directory.Exists(appDataDir))
+                {
+                    Directory.CreateDirectory(appDataDir);
+                }
+
+                string targetPath = Path.Combine(appDataDir, "default.mp4");
+
+                // 1. Đã có sẵn trong AppData và có dung lượng hợp lệ (> 1MB)
+                if (File.Exists(targetPath) && new FileInfo(targetPath).Length > 1024 * 1024)
+                {
+                    return targetPath;
+                }
+
+                // 2. Kiểm tra tệp default.mp4 nằm cùng thư mục với tệp exe
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string localDefault = Path.Combine(baseDir, "default.mp4");
+                if (File.Exists(localDefault) && new FileInfo(localDefault).Length > 1024 * 1024)
+                {
+                    try
+                    {
+                        File.Copy(localDefault, targetPath, true);
+                        return targetPath;
+                    }
+                    catch
+                    {
+                        return localDefault;
+                    }
+                }
+
+                // 3. Trích xuất từ Embedded Resource tích hợp sẵn trong file exe
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                using var stream = assembly.GetManifestResourceStream("KMO_LiveWallpaper.default.mp4");
+                if (stream != null)
+                {
+                    using var fs = new FileStream(targetPath, FileMode.Create, FileAccess.Write);
+                    stream.CopyTo(fs);
+                    App.Log($"[WallpaperManager] Extracted embedded default.mp4 to {targetPath} ({fs.Length} bytes)");
+                    return targetPath;
+                }
+
+                if (File.Exists(targetPath)) return targetPath;
+                if (File.Exists(localDefault)) return localDefault;
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[WallpaperManager] EnsureDefaultVideoAvailable error: {ex.Message}");
+            }
+
+            return string.Empty;
+        }
+
         public void InitializeDisplays()
         {
             CloseAllDisplays();
 
             if (string.IsNullOrEmpty(_config.VideoPath) || !File.Exists(_config.VideoPath))
             {
-                App.Log("[WallpaperManager] No video configured yet. Skipping wallpaper window creation.");
-                return;
+                string defaultVid = EnsureDefaultVideoAvailable();
+                if (!string.IsNullOrEmpty(defaultVid))
+                {
+                    _config.VideoPath = defaultVid;
+                    SaveConfig();
+                }
+                else
+                {
+                    App.Log("[WallpaperManager] No video configured and no default video found. Skipping wallpaper window creation.");
+                    return;
+                }
             }
 
             foreach (var screen in Screen.AllScreens)
@@ -357,6 +424,19 @@ namespace KMO_LiveWallpaper
                 }
             }
             catch { }
+
+            // Nếu người dùng mới cài đặt lần đầu hoặc chưa có video (hoặc video cũ bị xóa)
+            // Tự động gắn video hình nền mặc định để tuyệt đối không bị màn hình đen/trống!
+            if (string.IsNullOrEmpty(_config.VideoPath) || !File.Exists(_config.VideoPath))
+            {
+                string defaultVid = EnsureDefaultVideoAvailable();
+                if (!string.IsNullOrEmpty(defaultVid))
+                {
+                    _config.VideoPath = defaultVid;
+                    SaveConfig();
+                    App.Log($"[WallpaperManager] Loaded default fallback wallpaper: {defaultVid}");
+                }
+            }
         }
 
         public void SaveConfig()
