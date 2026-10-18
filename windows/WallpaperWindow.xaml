@@ -16,6 +16,7 @@
                       ScrubbingEnabled="False"
                       Stretch="UniformToFill"
                       IsMuted="True"
+                      RenderOptions.BitmapScalingMode="HighQuality"
                       MediaOpened="Player_MediaOpened"
                       MediaEnded="Player_MediaEnded"
                       MediaFailed="Player_MediaFailed" />
