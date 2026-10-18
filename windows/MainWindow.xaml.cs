@@ -17,12 +17,39 @@ namespace KMO_LiveWallpaper
 
         public MainWindow()
         {
+            App.Log("[MainWindow] Constructor start");
             InitializeComponent();
+            LoadAppAssets();
             SyncUIFromConfig();
             _isInitializing = false;
 
             WallpaperManager.Instance.StateChanged += OnWallpaperStateChanged;
             Closing += OnWindowClosing;
+            Loaded += (s, e) => App.Log("[MainWindow] Event: Loaded");
+            App.Log("[MainWindow] Constructor complete");
+        }
+
+        private void LoadAppAssets()
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string icoPath = Path.Combine(baseDir, "app.ico");
+                if (File.Exists(icoPath))
+                {
+                    Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri(icoPath));
+                }
+
+                string pngPath = Path.Combine(baseDir, "app.png");
+                if (File.Exists(pngPath))
+                {
+                    ImgLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(pngPath));
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[MainWindow] LoadAppAssets notice: {ex.Message}");
+            }
         }
 
         private void SyncUIFromConfig()

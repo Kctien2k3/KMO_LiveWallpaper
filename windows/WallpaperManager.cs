@@ -73,6 +73,12 @@ namespace KMO_LiveWallpaper
         {
             CloseAllDisplays();
 
+            if (string.IsNullOrEmpty(_config.VideoPath) || !File.Exists(_config.VideoPath))
+            {
+                App.Log("[WallpaperManager] No video configured yet. Skipping wallpaper window creation.");
+                return;
+            }
+
             foreach (var screen in Screen.AllScreens)
             {
                 var win = new WallpaperWindow(screen);
@@ -80,12 +86,7 @@ namespace KMO_LiveWallpaper
                 win.SetStretchMode(_config.StretchMode);
                 win.ApplyTransform(_config.ZoomScale, _config.OffsetX, _config.OffsetY);
                 win.Show();
-
-                if (!string.IsNullOrEmpty(_config.VideoPath) && File.Exists(_config.VideoPath))
-                {
-                    win.LoadVideo(_config.VideoPath);
-                }
-
+                win.LoadVideo(_config.VideoPath);
                 _wallpaperWindows.Add(win);
             }
 
@@ -96,12 +97,7 @@ namespace KMO_LiveWallpaper
         {
             _config.VideoPath = filePath;
             SaveConfig();
-
-            foreach (var win in _wallpaperWindows)
-            {
-                win.LoadVideo(filePath);
-            }
-            UpdatePlaybackState();
+            InitializeDisplays();
         }
 
         public void TogglePlayPause()

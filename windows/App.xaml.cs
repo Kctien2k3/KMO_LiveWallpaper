@@ -49,7 +49,19 @@ namespace KMO_LiveWallpaper
             if (!createdNew)
             {
                 Log("Another instance already running. Signaling window to show.");
-                _showEvent.Set();
+                try
+                {
+                    IntPtr existingHwnd = Win32.FindWindow(null, "KMO Live Wallpaper");
+                    if (existingHwnd != IntPtr.Zero)
+                    {
+                        Log($"Found existing window 0x{existingHwnd:X}. Restoring to foreground.");
+                        Win32.ShowWindow(existingHwnd, 9); // SW_RESTORE
+                        Win32.SetForegroundWindow(existingHwnd);
+                    }
+                }
+                catch { }
+
+                try { _showEvent.Set(); } catch { }
                 Shutdown();
                 return;
             }
@@ -59,12 +71,21 @@ namespace KMO_LiveWallpaper
             {
                 while (true)
                 {
-                    if (_showEvent.WaitOne())
+                    try
                     {
-                        Dispatcher.Invoke(() =>
+                        if (_showEvent.WaitOne())
                         {
-                            ShowMainWindow();
-                        });
+                            Log("[showListener] Event triggered. Dispatching ShowMainWindow...");
+                            Dispatcher.Invoke(() =>
+                            {
+                                ShowMainWindow();
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"[showListener ERROR] {ex}");
+                        break;
                     }
                 }
             })
@@ -175,19 +196,35 @@ namespace KMO_LiveWallpaper
 
         public void ShowMainWindow()
         {
+            Log("[ShowMainWindow] Called.");
             if (_mainWindow == null)
             {
                 _mainWindow = new MainWindow();
             }
-            if (!_mainWindow.IsVisible)
-            {
-                _mainWindow.Show();
-            }
+
+            _mainWindow.Show();
             _mainWindow.WindowState = WindowState.Normal;
+            _mainWindow.Visibility = Visibility.Visible;
             _mainWindow.Activate();
             _mainWindow.Topmost = true;
             _mainWindow.Topmost = false;
             _mainWindow.Focus();
+
+            try
+            {
+                var helper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
+                IntPtr hwnd = helper.Handle;
+                Log($"[ShowMainWindow] Hwnd: 0x{hwnd:X}, IsVisible: {_mainWindow.IsVisible}, WindowState: {_mainWindow.WindowState}");
+                if (hwnd != IntPtr.Zero)
+                {
+                    Win32.ShowWindow(hwnd, 9); // SW_RESTORE
+                    Win32.SetForegroundWindow(hwnd);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"[ShowMainWindow Hwnd ERROR] {ex}");
+            }
         }
 
         public void ExitApplication()

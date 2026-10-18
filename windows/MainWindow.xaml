@@ -2,7 +2,6 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KMO Live Wallpaper"
-        Icon="app.ico"
         Width="510" Height="620"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
@@ -54,7 +53,7 @@
                 <!-- Header Brand Card -->
                 <Border Style="{StaticResource CardStyle}" Padding="16,10">
                     <DockPanel>
-                        <Image Source="app.png" Width="40" Height="40" Margin="0,0,12,0" VerticalAlignment="Center" />
+                        <Image x:Name="ImgLogo" Width="40" Height="40" Margin="0,0,12,0" VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="KMO Live Wallpaper" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
                             <TextBlock Text="Native Live Wallpaper • Tối ưu phần cứng Windows" FontSize="11.5" Foreground="#888888" Margin="0,2,0,0" />
