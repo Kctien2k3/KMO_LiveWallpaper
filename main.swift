@@ -15,7 +15,6 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var playerLayers: [AVPlayerLayer] = []
     var players: [AVPlayer] = []
     var endObservers: [NSObjectProtocol] = []
-    var activeExportSession: AVAssetExportSession?
     var ceilingTimer: Timer?
 
     // Mức trần lý tưởng All-in-One: <= 5% CPU & <= 80MB RAM
@@ -133,6 +132,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overLimitStreak = 0
         graceUntil = Date().addingTimeInterval(3.0)
         if let targetURL = activeVideoURL {
+            updateResolutionSegments(for: targetURL)
             resolveAndLoadVideo(originalURL: targetURL)
         }
     }
@@ -489,10 +489,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
                         overLimitStreak = 0
                         graceUntil = Date().addingTimeInterval(3.0)
-                        if let targetURL = activeVideoURL {
-                            resolveAndLoadVideo(originalURL: targetURL)
-                            return
+                        for player in players {
+                            if let currentItem = player.currentItem {
+                                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
+                            }
                         }
+                        refreshStatusLabels()
+                        return
                     } else if overLimitStreak >= 3 {
                         pausedByCeiling = true
                         for player in players where player.rate != 0 {
@@ -533,6 +536,10 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             statusDot?.layer?.backgroundColor = NSColor.systemOrange.cgColor
             statusLabel?.stringValue = "Bảo vệ trần • \(metricStr)"
             menuStatusItem?.title = "Bảo vệ trần (\(metricStr))"
+        } else if userPaused {
+            statusDot?.layer?.backgroundColor = NSColor.secondaryLabelColor.cgColor
+            statusLabel?.stringValue = "Đã tạm dừng (\(resText)) • \(metricStr)"
+            menuStatusItem?.title = "Đã tạm dừng (\(metricStr))"
         } else if isPlaying {
             statusDot?.layer?.backgroundColor = NSColor.systemGreen.cgColor
             statusLabel?.stringValue = "Đang phát (\(resText) • Che \(covVal)%) • \(metricStr)"
@@ -555,6 +562,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         for player in players {
             player.currentItem?.preferredForwardBufferDuration = 0.35
+            if let currentItem = player.currentItem {
+                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
+            }
         }
         malloc_zone_pressure_relief(nil, 0)
         updatePlaybackState()
@@ -680,7 +690,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 544)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 576)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -704,7 +714,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
         // 1. CARD 1: Video & Chất lượng (Height: 88)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 410, width: cardW, height: 88))
+        let card1 = makeCard(frame: NSRect(x: margin, y: 442, width: cardW, height: 88))
         visualEffect.addSubview(card1)
 
         addRowIcon("film", to: card1, y: 55)
@@ -732,7 +742,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         card1.addSubview(resSegment!)
 
         // 2. CARD 2: Khung hình & Bố cục (Height: 172)
-        let card2 = makeCard(frame: NSRect(x: margin, y: 224, width: cardW, height: 172))
+        let card2 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 172))
         visualEffect.addSubview(card2)
 
         addRowIcon("aspectratio", to: card2, y: 139)
@@ -793,7 +803,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         card2.addSubview(offsetYValueLabel!)
 
         // 3. CARD 3: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
-        let card3 = makeCard(frame: NSRect(x: margin, y: 56, width: cardW, height: 154))
+        let card3 = makeCard(frame: NSRect(x: margin, y: 88, width: cardW, height: 154))
         visualEffect.addSubview(card3)
 
         addRowIcon("macwindow", to: card3, y: 123)
@@ -845,31 +855,58 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         muteSwitch?.action = #selector(toggleMute)
         card3.addSubview(muteSwitch!)
 
-        // 4. Footer Bar
-        let dot = NSView(frame: NSRect(x: margin + 2, y: 23, width: 8, height: 8))
+        // 4. Footer Bar (2 Hàng rõ ràng chuẩn macOS - Hình 3)
+        let footerDiv = NSView(frame: NSRect(x: margin, y: 76, width: cardW, height: 0.5))
+        footerDiv.wantsLayer = true
+        footerDiv.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor
+        visualEffect.addSubview(footerDiv)
+
+        let dot = NSView(frame: NSRect(x: margin + 2, y: 51, width: 8, height: 8))
         dot.wantsLayer = true
         dot.layer?.cornerRadius = 4
         dot.layer?.backgroundColor = NSColor.systemGreen.cgColor
         visualEffect.addSubview(dot)
         statusDot = dot
 
-        statusLabel = makeLabel("Đang phát", frame: NSRect(x: margin + 15, y: 17, width: 266, height: 18), bold: false, size: 11.5, secondary: true)
+        statusLabel = makeLabel("Đang phát", frame: NSRect(x: margin + 16, y: 46, width: cardW - 16, height: 18), bold: false, size: 12, secondary: true)
         visualEffect.addSubview(statusLabel!)
+
+        let btnW: CGFloat = (cardW - 24) / 4.0 // 103
+        let btnH: CGFloat = 28
+        let btnY: CGFloat = 12
 
         playPauseBtn = NSButton(title: userPaused ? "Phát tiếp" : "Tạm dừng", target: self, action: #selector(togglePlayPause))
         playPauseBtn?.bezelStyle = .rounded
-        playPauseBtn?.frame = NSRect(x: 300, y: 13, width: 78, height: 28)
+        playPauseBtn?.frame = NSRect(x: margin, y: btnY, width: btnW, height: btnH)
         visualEffect.addSubview(playPauseBtn!)
 
-        let hideBtn = NSButton(title: "Thu gọn", target: self, action: #selector(hideToBackground))
+        let minimizeBtn = NSButton(title: "Thu nhỏ", target: self, action: #selector(miniaturizeWindow))
+        minimizeBtn.bezelStyle = .rounded
+        minimizeBtn.frame = NSRect(x: margin + btnW + 8, y: btnY, width: btnW, height: btnH)
+        visualEffect.addSubview(minimizeBtn)
+
+        let hideBtn = NSButton(title: "Ẩn khay", target: self, action: #selector(hideToBackground))
         hideBtn.bezelStyle = .rounded
         hideBtn.keyEquivalent = "\r"
-        hideBtn.frame = NSRect(x: 382, y: 13, width: 74, height: 28)
+        hideBtn.frame = NSRect(x: margin + (btnW + 8) * 2, y: btnY, width: btnW, height: btnH)
         visualEffect.addSubview(hideBtn)
+
+        let quitBtn = NSButton(title: "Thoát", target: self, action: #selector(quitApp))
+        quitBtn.bezelStyle = .rounded
+        quitBtn.frame = NSRect(x: margin + (btnW + 8) * 3, y: btnY, width: btnW, height: btnH)
+        visualEffect.addSubview(quitBtn)
+
+        if let targetURL = activeVideoURL {
+            updateResolutionSegments(for: targetURL)
+        }
 
         controlWindow = win
         updatePlaybackState()
         refreshStatusLabels()
+    }
+
+    @objc func miniaturizeWindow() {
+        controlWindow?.miniaturize(nil)
     }
 
     func makeLabel(_ text: String, frame: NSRect, bold: Bool, size: CGFloat, secondary: Bool = false) -> NSTextField {
@@ -891,6 +928,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overLimitStreak = 0
         graceUntil = Date().addingTimeInterval(3.0)
         buildControlWindowIfNeeded()
+        if let targetURL = activeVideoURL {
+            updateResolutionSegments(for: targetURL)
+        }
         NSApp.setActivationPolicy(.regular)
         controlWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -1036,16 +1076,84 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         displaySettingsChanged()
     }
 
+    func buildVideoComposition(for asset: AVAsset, mode: Int) -> AVVideoComposition? {
+        if mode >= 2 { return nil } // 4K Gốc: Giữ nguyên độ phân giải video gốc
+        guard let track = asset.tracks(withMediaType: .video).first else { return nil }
+        let natSize = track.naturalSize.applying(track.preferredTransform)
+        let srcW = abs(natSize.width)
+        let srcH = abs(natSize.height)
+        guard srcW > 0 && srcH > 0 else { return nil }
+
+        let targetW: CGFloat = (mode == 0) ? 1920.0 : 2560.0
+        let targetH: CGFloat = (mode == 0) ? 1080.0 : 1440.0
+        let scale = min(targetW / srcW, targetH / srcH, 1.0)
+        if scale >= 0.98 { return nil }
+
+        let renderW = CGFloat(Int(round(srcW * scale)) & ~1)
+        let renderH = CGFloat(Int(round(srcH * scale)) & ~1)
+
+        let comp = AVMutableVideoComposition()
+        comp.renderSize = CGSize(width: renderW, height: renderH)
+        let nominalRate = track.nominalFrameRate > 0 ? track.nominalFrameRate : 30.0
+        comp.frameDuration = CMTime(value: 1, timescale: Int32(round(nominalRate)))
+
+        let instruction = AVMutableVideoCompositionInstruction()
+        let dur = asset.duration.isValid && asset.duration > .zero ? asset.duration : CMTime(seconds: 3600, preferredTimescale: 600)
+        instruction.timeRange = CMTimeRange(start: .zero, duration: dur)
+
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        var transform = track.preferredTransform
+        transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
+        layerInstruction.setTransform(transform, at: .zero)
+
+        instruction.layerInstructions = [layerInstruction]
+        comp.instructions = [instruction]
+        return comp
+    }
+
+    func updateResolutionSegments(for url: URL) {
+        let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: false])
+        guard let track = asset.tracks(withMediaType: .video).first else { return }
+        let natSize = track.naturalSize.applying(track.preferredTransform)
+        let w = abs(natSize.width)
+        let h = abs(natSize.height)
+        let maxDim = max(w, h)
+        let minDim = min(w, h)
+
+        let can2k = (maxDim >= 2400 || minDim >= 1350)
+        let can4k = (maxDim >= 3600 || minDim >= 2000)
+
+        resSegment?.setEnabled(true, forSegment: 0)
+        resSegment?.setEnabled(can2k, forSegment: 1)
+        resSegment?.setEnabled(can4k, forSegment: 2)
+
+        let maxAllowed = can4k ? 2 : (can2k ? 1 : 0)
+        if resolutionMode > maxAllowed {
+            resolutionMode = maxAllowed
+            resSegment?.selectedSegment = resolutionMode
+            UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
+        }
+    }
+
     @objc func resolutionChanged() {
         guard let rSeg = resSegment else { return }
-        resolutionMode = rSeg.selectedSegment
+        let selected = rSeg.selectedSegment
+        if rSeg.isEnabled(forSegment: selected) {
+            resolutionMode = selected
+        } else {
+            rSeg.selectedSegment = resolutionMode
+            return
+        }
         pausedByCeiling = false
         overLimitStreak = 0
         graceUntil = Date().addingTimeInterval(3.0)
         UserDefaults.standard.set(resolutionMode, forKey: savedResKey)
-        if let targetURL = activeVideoURL {
-            resolveAndLoadVideo(originalURL: targetURL)
+        for player in players {
+            if let currentItem = player.currentItem {
+                currentItem.videoComposition = buildVideoComposition(for: currentItem.asset, mode: resolutionMode)
+            }
         }
+        refreshStatusLabels()
     }
 
     // MARK: - 100% Native Apple All-in-One Video Pipeline (Không gọi tiến trình ngoài)
@@ -1062,49 +1170,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func resolveAndLoadVideo(originalURL: URL) {
-        let baseName = originalURL.lastPathComponent
-        let suffix: String
-        let exportPreset: String
-
-        switch resolutionMode {
-        case 0:
-            suffix = "_1080p.mp4"
-            exportPreset = AVAssetExportPresetHEVC1920x1080
-        case 1:
-            suffix = "_2k.mp4"
-            exportPreset = AVAssetExportPresetHEVCHighestQuality
-        default:
-            suffix = "_4k.mp4"
-            exportPreset = AVAssetExportPresetPassthrough
-        }
-
-        let cachedURL = cacheDir.appendingPathComponent(baseName + suffix)
-        if FileManager.default.fileExists(atPath: cachedURL.path) {
-            swapVideoSeamless(url: cachedURL, isCached: true)
-            return
-        }
-
-        // Phát ngay lập tức từ file gốc (đã lọc bỏ âm thanh trong bộ nhớ) mà không chớp màn hình
-        swapVideoSeamless(url: originalURL, isCached: false)
-
-        // Tự động chuẩn hóa ngầm bằng chính nhân AVAssetExportSession tích hợp sẵn của Apple (All-in-One, 0 tiến trình ngoài)
-        activeExportSession?.cancelExport()
-        let videoOnlyAsset = makeVideoOnlyAsset(from: originalURL)
-        guard let session = AVAssetExportSession(asset: videoOnlyAsset, presetName: exportPreset) else { return }
-        session.outputURL = cachedURL
-        session.outputFileType = .mp4
-        session.shouldOptimizeForNetworkUse = true
-        activeExportSession = session
-
-        session.exportAsynchronously { [weak self] in
-            guard let self = self, session.status == .completed else { return }
-            DispatchQueue.main.async {
-                if FileManager.default.fileExists(atPath: cachedURL.path) {
-                    self.graceUntil = Date().addingTimeInterval(3.0)
-                    self.swapVideoSeamless(url: cachedURL, isCached: true)
-                }
-            }
-        }
+        swapVideoSeamless(url: originalURL)
     }
 
     // MARK: - Kiến Trúc Cố Định 1 Cửa Sổ & 1 AVPlayer Duy Nhất (Chống Chớp Màn Hình 120Hz ProMotion & Chống Sinh Tiến Trình Phụ)
@@ -1188,7 +1254,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyLayerTransformAndGravity()
     }
 
-    func swapVideoSeamless(url: URL, isCached: Bool) {
+    func swapVideoSeamless(url: URL, isCached: Bool = false) {
         graceUntil = Date().addingTimeInterval(3.0)
         ensureDesktopInfrastructure()
 
@@ -1198,26 +1264,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             endObservers.removeAll()
 
-            let baseAsset: AVAsset = isCached
-                ? AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: false])
-                : makeVideoOnlyAsset(from: url)
-
-            let targetMaxRes: CGSize
-            switch resolutionMode {
-            case 0:
-                targetMaxRes = CGSize(width: 1920, height: 1080)
-            case 1:
-                targetMaxRes = CGSize(width: 2560, height: 1440)
-            default:
-                targetMaxRes = .zero
-            }
+            let baseAsset: AVAsset = makeVideoOnlyAsset(from: url)
+            let comp = buildVideoComposition(for: baseAsset, mode: resolutionMode)
 
             for player in players {
                 let item = AVPlayerItem(asset: baseAsset)
                 item.preferredForwardBufferDuration = 0.45
-                if !isCached && targetMaxRes != .zero {
-                    item.preferredMaximumResolution = targetMaxRes
-                }
+                item.videoComposition = comp
 
                 let obs = NotificationCenter.default.addObserver(
                     forName: AVPlayerItem.didPlayToEndTimeNotification,
@@ -1225,7 +1278,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     queue: .main
                 ) { [weak self, weak player] _ in
                     self?.graceUntil = Date().addingTimeInterval(1.5)
-                    player?.seek(to: .zero, toleranceBefore: .positiveInfinity, toleranceAfter: .positiveInfinity)
+                    player?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
                 }
                 endObservers.append(obs)
 
@@ -1460,17 +1513,30 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func chooseVideo() {
         NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel()
-        panel.title = "Chọn Video"
+        panel.title = "Chọn Video Nền"
         panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
 
         if panel.runModal() == .OK, let url = panel.url {
+            let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: false])
+            let durationSec = CMTimeGetSeconds(asset.duration)
+            if durationSec > 60.5 {
+                let alert = NSAlert()
+                alert.messageText = "Thời lượng video vượt quá 1 phút"
+                alert.informativeText = String(format: "Video bạn chọn dài %.1f giây. Vui lòng chọn video ngắn dưới 60 giây (1 phút) để đảm bảo hình nền lặp mượt mà và tiết kiệm tối đa RAM/CPU.", durationSec)
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Đã hiểu")
+                alert.runModal()
+                return
+            }
+
             UserDefaults.standard.set(url.path, forKey: savedVideoKey)
             fileLabel?.stringValue = url.lastPathComponent
             pausedByCeiling = false
             overLimitStreak = 0
             graceUntil = Date().addingTimeInterval(3.0)
+            updateResolutionSegments(for: url)
             resolveAndLoadVideo(originalURL: url)
         }
         malloc_zone_pressure_relief(nil, 0)
