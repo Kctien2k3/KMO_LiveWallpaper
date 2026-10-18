@@ -72,29 +72,23 @@ namespace KMO_LiveWallpaper
         }
 
         /// <summary>
-        /// Tính chính xác % diện tích màn hình làm việc bị các cửa sổ ứng dụng khác che phủ.
-        /// Bỏ qua hoàn toàn Desktop, Taskbar, WorkerW, lớp phủ trong suốt (Overlay) và cửa sổ của chính ứng dụng.
+        /// Tính chính xác % diện tích vùng làm việc (WorkingArea) bị các cửa sổ ứng dụng khác che phủ.
+        /// Bỏ qua hoàn toàn Desktop, Taskbar, WorkerW, lớp phủ trong suốt (Overlay), cửa sổ cloaked và cửa sổ của chính ứng dụng.
         /// </summary>
         public static double CalculateScreenCoveragePercent(Screen screen)
         {
             try
             {
-                var bounds = screen.Bounds;
+                var bounds = screen.WorkingArea;
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                {
+                    bounds = screen.Bounds;
+                }
+
                 double totalArea = (double)bounds.Width * bounds.Height;
                 if (totalArea <= 0) return 0.0;
 
                 int myPid = Process.GetCurrentProcess().Id;
-
-                // Nếu người dùng đang focus vào Desktop hoặc Explorer shell: độ che phủ là 0%
-                IntPtr fg = Win32.GetForegroundWindow();
-                if (fg != IntPtr.Zero)
-                {
-                    string fgClass = Win32.GetWindowClassName(fg);
-                    if (IgnoredWindowClasses.Contains(fgClass))
-                    {
-                        return 0.0;
-                    }
-                }
 
                 List<Win32.RECT> visibleRects = new();
                 double maxSingleRatio = 0.0;
@@ -103,12 +97,16 @@ namespace KMO_LiveWallpaper
                 {
                     if (!Win32.IsWindowVisible(hWnd) || Win32.IsIconic(hWnd)) return true;
 
+                    // Bỏ qua cửa sổ ẩn/cloaked (ví dụ ở Virtual Desktop khác hoặc Windows Store app đang treo)
+                    if (Win32.IsWindowCloaked(hWnd)) return true;
+
                     Win32.GetWindowThreadProcessId(hWnd, out uint pid);
                     if (pid == myPid) return true;
 
-                    // Lọc bỏ overlay trong suốt (WS_EX_TRANSPARENT)
+                    // Lọc bỏ overlay trong suốt (WS_EX_TRANSPARENT) và ToolWindow không phải AppWindow
                     int exStyle = Win32.GetWindowLong(hWnd, Win32.GWL_EXSTYLE);
                     if ((exStyle & Win32.WS_EX_TRANSPARENT) != 0) return true;
+                    if ((exStyle & Win32.WS_EX_TOOLWINDOW) != 0 && (exStyle & Win32.WS_EX_APPWINDOW) == 0) return true;
 
                     string cls = Win32.GetWindowClassName(hWnd);
                     if (IgnoredWindowClasses.Contains(cls)) return true;
@@ -118,11 +116,11 @@ namespace KMO_LiveWallpaper
 
                     if (Win32.GetWindowRect(hWnd, out Win32.RECT r))
                     {
-                        // Lọc bỏ cửa sổ thu nhỏ ngoài màn hình hoặc quá nhỏ
+                        // Lọc bỏ cửa sổ thu nhỏ ngoài màn hình hoặc quá nhỏ (< 80px)
                         if (r.Left <= -10000 || r.Top <= -10000) return true;
-                        if (r.Width < 150 || r.Height < 150) return true;
+                        if (r.Width < 80 || r.Height < 80) return true;
 
-                        // Tính phần giao nhau giữa cửa sổ và màn hình hiện tại
+                        // Tính phần giao nhau giữa cửa sổ và vùng làm việc hiện tại
                         int ix1 = Math.Max(bounds.Left, r.Left);
                         int iy1 = Math.Max(bounds.Top, r.Top);
                         int ix2 = Math.Min(bounds.Right, r.Right);
@@ -136,7 +134,6 @@ namespace KMO_LiveWallpaper
                             if (ratio > maxSingleRatio)
                                 maxSingleRatio = ratio;
 
-                            App.Log($"[CovWindow] Cls={cls}, Proc={procName}, Rect=({r.Left},{r.Top},{r.Width}x{r.Height}), Ratio={ratio:F1}%");
                             visibleRects.Add(new Win32.RECT { Left = ix1, Top = iy1, Right = ix2, Bottom = iy2 });
                         }
                     }

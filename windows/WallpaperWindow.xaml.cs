@@ -85,33 +85,27 @@ namespace KMO_LiveWallpaper
 
         public void PlayVideo()
         {
-            if (!_isPlaying)
+            try
             {
-                try
-                {
-                    Player.Play();
-                    _isPlaying = true;
-                }
-                catch (Exception ex)
-                {
-                    App.Log($"[WallpaperWindow] PlayVideo error: {ex.Message}");
-                }
+                Player.Play();
+                _isPlaying = true;
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[WallpaperWindow] PlayVideo error: {ex.Message}");
             }
         }
 
         public void PauseVideo()
         {
-            if (_isPlaying)
+            try
             {
-                try
-                {
-                    Player.Pause();
-                    _isPlaying = false;
-                }
-                catch (Exception ex)
-                {
-                    App.Log($"[WallpaperWindow] PauseVideo error: {ex.Message}");
-                }
+                Player.Pause();
+                _isPlaying = false;
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[WallpaperWindow] PauseVideo error: {ex.Message}");
             }
         }
 

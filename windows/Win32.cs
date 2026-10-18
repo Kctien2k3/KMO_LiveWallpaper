@@ -82,9 +82,43 @@ namespace KMO_LiveWallpaper
         public const uint WS_POPUP = 0x80000000;
         public const uint WS_EX_TRANSPARENT = 0x00000020;
         public const uint WS_EX_TOOLWINDOW = 0x00000080;
+        public const uint WS_EX_APPWINDOW = 0x00040000;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_SHOWWINDOW = 0x0040;
+
+        public const int DWMWA_CLOAKED = 14;
+
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+        public static bool IsWindowCloaked(IntPtr hWnd)
+        {
+            if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0)
+            {
+                return cloaked != 0;
+            }
+            return false;
+        }
+
+        public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        public const uint EVENT_SYSTEM_MOVESIZEEND = 0x000B;
+        public const uint EVENT_SYSTEM_MINIMIZESTART = 0x0016;
+        public const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
+        public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+        public const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+
+        public delegate void WinEventDelegate(
+            IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWinEventHook(
+            uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc,
+            uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]

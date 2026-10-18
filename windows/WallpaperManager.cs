@@ -20,7 +20,7 @@ namespace KMO_LiveWallpaper
         public bool CeilingEnabled { get; set; } = true;
         public bool IsMuted { get; set; } = true;
         public int ResolutionMode { get; set; } = 2; // 0: 1080p, 1: 2K, 2: 4K
-        public bool AutoLaunchStartup { get; set; } = false;
+        public bool AutoLaunchStartup { get; set; } = true;
     }
 
     public class WallpaperManager
@@ -31,6 +31,9 @@ namespace KMO_LiveWallpaper
         private readonly List<WallpaperWindow> _wallpaperWindows = new();
         private readonly DispatcherTimer _monitorTimer;
         private DispatcherTimer? _pauseDebounceTimer;
+        private DispatcherTimer? _eventDebounceTimer;
+        private IntPtr _hWinEventHook = IntPtr.Zero;
+        private Win32.WinEventDelegate? _winEventProc;
 
         private WallpaperConfig _config = new();
         private bool _isScreenLocked = false;
@@ -61,13 +64,47 @@ namespace KMO_LiveWallpaper
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
-            // Timer kiểm tra tài nguyên và che phủ định kỳ (1.5 giây)
+            // Lắng nghe sự kiện cửa sổ tức thì (60ms) như macOS: chuyển app, di chuyển, phóng to, thu nhỏ
+            _winEventProc = new Win32.WinEventDelegate(OnWinEvent);
+            _hWinEventHook = Win32.SetWinEventHook(
+                Win32.EVENT_SYSTEM_FOREGROUND,
+                Win32.EVENT_SYSTEM_MINIMIZEEND,
+                IntPtr.Zero,
+                _winEventProc,
+                0,
+                0,
+                Win32.WINEVENT_OUTOFCONTEXT | Win32.WINEVENT_SKIPOWNPROCESS
+            );
+
+            // Tự động kiểm tra và đăng ký khởi động cùng Windows nếu bật
+            if (_config.AutoLaunchStartup)
+            {
+                SetAutoLaunchStartup(true);
+            }
+
+            // Timer kiểm tra tài nguyên và che phủ định kỳ (1.5 giây) làm dự phòng
             _monitorTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1.5)
             };
             _monitorTimer.Tick += OnMonitorTick;
             _monitorTimer.Start();
+        }
+
+        private void OnWinEvent(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        {
+            if (idObject != 0) return; // Chỉ xử lý OBJID_WINDOW (0)
+
+            // Debounce 60ms mượt mà giống hệt schedulePlaybackStateUpdate(delay: 0.06) trên macOS
+            _eventDebounceTimer?.Stop();
+            _eventDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
+            _eventDebounceTimer.Tick += (s, e) =>
+            {
+                _eventDebounceTimer?.Stop();
+                _eventDebounceTimer = null;
+                UpdatePlaybackState();
+            };
+            _eventDebounceTimer.Start();
         }
 
         public void InitializeDisplays()
@@ -347,7 +384,12 @@ namespace KMO_LiveWallpaper
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
-                return key?.GetValue("KMO_LiveWallpaper") != null;
+                if (key?.GetValue("KMO_LiveWallpaper") != null) return true;
+
+                string startupShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
+                    "KMO Live Wallpaper.lnk");
+                return File.Exists(startupShortcut);
             }
             catch
             {
@@ -362,12 +404,17 @@ namespace KMO_LiveWallpaper
                 _config.AutoLaunchStartup = enable;
                 SaveConfig();
 
+                string installedExe = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KMO_LiveWallpaper", "KMO_LiveWallpaper.exe");
+                string exePath = File.Exists(installedExe) ? installedExe : (Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "");
+
+                // 1. Ghi Registry Run
                 using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
                 if (key != null)
                 {
                     if (enable)
                     {
-                        string exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "";
                         if (!string.IsNullOrEmpty(exePath))
                         {
                             key.SetValue("KMO_LiveWallpaper", $"\"{exePath}\" --background");
@@ -378,12 +425,56 @@ namespace KMO_LiveWallpaper
                         key.DeleteValue("KMO_LiveWallpaper", false);
                     }
                 }
+
+                // 2. Đồng bộ phím tắt trong thư mục Startup
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string shortcutPath = Path.Combine(startupFolder, "KMO Live Wallpaper.lnk");
+                if (enable)
+                {
+                    if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+                    {
+                        CreateStartupShortcut(shortcutPath, exePath);
+                    }
+                }
+                else
+                {
+                    if (File.Exists(shortcutPath))
+                    {
+                        File.Delete(shortcutPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[SetAutoLaunchStartup ERROR] {ex.Message}");
+            }
+        }
+
+        private static void CreateStartupShortcut(string shortcutPath, string targetExe)
+        {
+            try
+            {
+                Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+                if (shellType == null) return;
+                dynamic shell = Activator.CreateInstance(shellType)!;
+                dynamic shortcut = shell.CreateShortcut(shortcutPath);
+                shortcut.TargetPath = targetExe;
+                shortcut.Arguments = "--background";
+                shortcut.WorkingDirectory = Path.GetDirectoryName(targetExe);
+                shortcut.Description = "KMO Live Wallpaper";
+                shortcut.Save();
             }
             catch { }
         }
 
         public void Shutdown()
         {
+            if (_hWinEventHook != IntPtr.Zero)
+            {
+                Win32.UnhookWinEvent(_hWinEventHook);
+                _hWinEventHook = IntPtr.Zero;
+            }
+            _eventDebounceTimer?.Stop();
             _monitorTimer.Stop();
             _pauseDebounceTimer?.Stop();
             SystemEvents.SessionSwitch -= OnSessionSwitch;

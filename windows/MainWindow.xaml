@@ -136,7 +136,7 @@
 
                         <DockPanel Margin="0,2,0,8">
                             <TextBlock Text="🚀 Tự khởi động khi đăng nhập Windows" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbAutoLaunchStartup" IsChecked="False" HorizontalAlignment="Right" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
+                            <CheckBox x:Name="CbAutoLaunchStartup" IsChecked="True" HorizontalAlignment="Right" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
                         </DockPanel>
 
                         <Separator Background="#333333" Margin="0,4,0,8" />
