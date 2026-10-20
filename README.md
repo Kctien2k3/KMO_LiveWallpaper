@@ -9,26 +9,29 @@
 | Tính năng | Chi tiết kỹ thuật & Lợi ích thực tế |
 | :--- | :--- |
 | **🛡️ An toàn tuyệt đối cho màn hình** | Đồng bộ nhịp quét VSync (`60Hz` / `120Hz` ProMotion), khóa dải màu SDR chuẩn, không gây chớp hình hay kích xung nhiệt đèn nền màn hình. |
-| **⚡ Siêu nhẹ All-in-One (`≤ 5% CPU & ≤ 80MB RAM`)** | Giải mã phần cứng trực tiếp qua chip Media Engine (Apple Silicon) hoặc DXVA2/D3D11 GPU Video Engine (NVIDIA/Intel/AMD trên Windows), không sinh tiến trình rác. |
+| **⚡ Siêu nhẹ All-in-One (`≤ 8% CPU & ≤ 80MB RAM`)** | Giải mã phần cứng trực tiếp qua Media Engine (Apple Silicon) hoặc DXVA2/D3D11 GPU Video Engine (Windows). Vùng đệm giảm tải mềm `5% - 8%` chống giật khựng. |
 | **🧠 Tự động dừng thông minh (`0.0% CPU`)** | Tự ngắt giải mã về `0.0% CPU` khi cửa sổ làm việc chiếm **trên 90% màn hình**, khi mở phần mềm Edit chuyên nghiệp (Adobe Premiere, After Effects, Photoshop, DaVinci Resolve, Final Cut, CapCut...), hoặc khi **Khóa màn hình (Lock Screen) / Sleep / Gập máy**. |
 | **🌊 Chuyển cảnh mượt mà 0% khựng hình** | Phát lại tức thì (`0ms`) khi về Desktop và dừng mượt (`0.45s` debounce) sau khi hiệu ứng thu/phóng cửa sổ hoặc chuyển Desktop hoàn tất. |
 | **📺 Tự động Fit màn hình TV / Multi-Monitor** | Tự động nhận diện thay đổi tỷ lệ khi cắm cáp HDMI hoặc chiếu không dây (AirPlay / Miracast) lên TV, lấp đầy tràn viền 100% không để dải đen. |
-| **🎛️ Giao diện Cài đặt trực quan** | Tuỳ chỉnh độ phân giải (`1080p`, `2K QHD`, `4K Gốc`), tỷ lệ khung hình (`Lấp đầy`, `Vừa khít`, `Kéo giãn`), thu phóng (`Zoom`) và dịch chuyển ngang/dọc trực quan. |
+| **🎛️ Giao diện Cài đặt trực quan** | Tuỳ chỉnh độ phân giải (`1080p`, `2K QHD`, `4K Gốc`), tốc độ khung hình (`30 FPS`, `60 FPS`, `120 FPS`), tỷ lệ (`Lấp đầy`, `Vừa khít`, `Kéo giãn`), thu phóng (`Zoom`) và dịch chuyển ngang/dọc trực quan. |
 
 ---
 
 ## 🍎 Dành cho macOS (MacBook, Mac mini, Mac Studio, iMac)
 
-Đã đóng gói sẵn **`KMO_LiveWallpaper.app`** (Universal Binary chạy được trên cả Mac chip M và Intel):
+Ứng dụng hỗ trợ Universal Binary chạy mượt trên cả chip Apple Silicon (M1/M2/M3/M4) lẫn Intel:
 
-### Cách 1: Cài đặt tự động bằng 1 cú nhấp đúp (Khuyên dùng)
-1. Tải thư mục này về máy (bấm **Code -> Download ZIP** trên GitHub rồi giải nén, hoặc `git clone`).
-2. Nhấp đúp chuột vào file **`CaiDat.command`** (nếu Mac hỏi quyền mở lần đầu, bấm **Chuột phải vào `CaiDat.command` -> chọn Open / Mở**).
-3. Ứng dụng sẽ tự động được chép vào thư mục `/Applications`, gỡ cảnh báo tải mạng và mở lên ngay!
+### Cách 1: Cài đặt tự động 1-Click bằng file `.pkg` (Khuyên dùng nhất - Tiện nhất)
+1. Tải file **`KMO_LiveWallpaper-macOS-Installer.pkg`**.
+2. Nhấp đúp chuột vào file `.pkg` và bấm **"Tiếp tục" ➔ "Cài đặt"**.
+3. Hệ thống sẽ tự động chép vào `/Applications`, tự gỡ chặn Gatekeeper và tự khởi động ứng dụng ngay lập tức!
 
-### Cách 2: Kéo thả thủ công
-1. Kéo trực tiếp biểu tượng **`KMO_LiveWallpaper.app`** (hoặc giải nén từ `KMO_LiveWallpaper-macOS-Universal.zip`) vào thư mục **`Applications` (Ứng dụng)** của Mac.
-2. Mở ứng dụng từ Launchpad hoặc `/Applications`, bấm **`Chọn...`** để chọn video yêu thích!
+### Cách 2: Kéo thả trực quan bằng file `.dmg`
+1. Tải file **`KMO_LiveWallpaper.dmg`**.
+2. Nhấp đúp chuột để mở ổ đĩa ảo, kéo biểu tượng **`KMO_LiveWallpaper`** vào thư mục **`Applications`**.
+
+### Cách 3: Chạy script `CaiDat.command` hoặc giải nén file `.zip`
+- Giải nén `KMO_LiveWallpaper-macOS-Universal.zip` hoặc nhấp đúp file **`CaiDat.command`** trong thư mục mã nguồn.
 
 ---
 
