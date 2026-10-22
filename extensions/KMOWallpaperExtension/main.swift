@@ -436,7 +436,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
     }
 }
 
-private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
+struct KMOWallpaperConfiguration: AppExtensionConfiguration {
     func accept(connection: NSXPCConnection) -> Bool {
         extensionTrace("XPC connection from PID \(connection.processIdentifier)")
 
@@ -508,7 +508,7 @@ private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
 }
 
 @main
-private final class MuroWallpaperExtension: NSObject, AppExtension {
+final class KMOWallpaperExtension: NSObject, AppExtension {
     override required init() {
         super.init()
         _ = ExtensionPlaybackCoordinator.shared
@@ -521,6 +521,6 @@ private final class MuroWallpaperExtension: NSObject, AppExtension {
     }
 
     var configuration: some AppExtensionConfiguration {
-        MuroWallpaperConfiguration()
+        KMOWallpaperConfiguration()
     }
 }

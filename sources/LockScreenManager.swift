@@ -49,12 +49,15 @@ final class LockScreenManager {
     }
 
     func registerExtension() {
-        let extURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Extensions/KMOWallpaperExtension.appex")
-        let extPath = extURL.path
-        if FileManager.default.fileExists(atPath: extPath) {
+        let appPaths = [
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Extensions/KMOWallpaperExtension.appex").path,
+            "/Applications/KMO_LiveWallpaper.app/Contents/Extensions/KMOWallpaperExtension.appex"
+        ]
+        for extPath in appPaths where FileManager.default.fileExists(atPath: extPath) {
             _ = run("/usr/bin/xattr", ["-cr", extPath])
             _ = run("/usr/bin/pluginkit", ["-a", extPath])
             _ = run("/usr/bin/pluginkit", ["-e", "use", "-i", extensionBundleID])
+            break
         }
     }
 
@@ -100,9 +103,6 @@ final class LockScreenManager {
         """.data(using: .utf8)!
         try? prefsData.write(to: containerDocsURL.appendingPathComponent("kmo-prefs.json"))
 
-        // Darwin notifications
-        notifyExtension()
-
         return destVideo
     }
 
@@ -127,51 +127,110 @@ final class LockScreenManager {
     func setLockScreen(enabled: Bool, videoURL: URL?) {
         lockScreenEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: savedLockScreenKey)
-        ensureBackupsExist()
-
-        if enabled, let videoURL = videoURL {
-            registerExtension()
-            guard let staged = stageVideo(url: videoURL) else { return }
-            applyChoiceToStores(surface: .desktop, stagedVideoURL: staged)
-        } else {
-            restoreSurfaceInStores(surface: .desktop)
-        }
-        restartWallpaperAgent()
+        applyChanges(videoURL: videoURL)
     }
 
     func setScreenSaver(enabled: Bool, videoURL: URL?) {
         screenSaverEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: savedScreenSaverKey)
-        ensureBackupsExist()
-
-        if enabled, let videoURL = videoURL {
-            registerExtension()
-            guard let staged = stageVideo(url: videoURL) else { return }
-            applyChoiceToStores(surface: .screenSaver, stagedVideoURL: staged)
-        } else {
-            restoreSurfaceInStores(surface: .screenSaver)
-        }
-        restartWallpaperAgent()
+        applyChanges(videoURL: videoURL)
     }
 
     func updateActiveVideo(url: URL) {
         if lockScreenEnabled || screenSaverEnabled {
-            guard let staged = stageVideo(url: url) else { return }
-            if lockScreenEnabled {
-                applyChoiceToStores(surface: .desktop, stagedVideoURL: staged)
-            }
-            if screenSaverEnabled {
-                applyChoiceToStores(surface: .screenSaver, stagedVideoURL: staged)
-            }
-            restartWallpaperAgent()
+            applyChanges(videoURL: url)
         }
+    }
+
+    func applyChanges(videoURL: URL?) {
+        ensureBackupsExist()
+        registerExtension()
+
+        var staged: URL?
+        if (lockScreenEnabled || screenSaverEnabled), let videoURL = videoURL {
+            staged = stageVideo(url: videoURL)
+        }
+
+        for _ in 1...3 {
+            if lockScreenEnabled, let staged = staged {
+                applyChoiceToStores(surface: .desktop, stagedVideoURL: staged)
+            } else if !lockScreenEnabled {
+                restoreSurfaceInStores(surface: .desktop)
+            }
+
+            if screenSaverEnabled, let staged = staged {
+                applyChoiceToStores(surface: .screenSaver, stagedVideoURL: staged)
+            } else if !screenSaverEnabled {
+                restoreSurfaceInStores(surface: .screenSaver)
+            }
+
+            notifyExtension()
+            restartWallpaperAgent()
+
+            Thread.sleep(forTimeInterval: 0.8)
+            if verifyStoresHoldConfig() {
+                break
+            }
+        }
+    }
+
+    private func verifyStoresHoldConfig() -> Bool {
+        let role = lockScreenEnabled ? "Desktop" : (screenSaverEnabled ? "Idle" : nil)
+        guard let role = role else { return true }
+        for url in storeURLs where FileManager.default.fileExists(atPath: url.path) {
+            guard let data = try? Data(contentsOf: url),
+                  let store = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+            else { continue }
+            var holds = false
+            AppleWallpaperStore.forEachNode(in: store) { _, node in
+                if let surface = node[role] as? [String: Any],
+                   let content = surface["Content"] as? [String: Any],
+                   let choices = content["Choices"] as? [[String: Any]],
+                   choices.contains(where: { ($0["Provider"] as? String) == extensionBundleID }) {
+                    holds = true
+                }
+            }
+            if !holds { return false }
+        }
+        return true
+    }
+
+    private func defaultSurface() -> [String: Any] {
+        [
+            "Content": [
+                "Choices": [[
+                    "Provider": "default",
+                    "Files": [] as [[String: Any]],
+                    "Configuration": Data(),
+                ]],
+                "Shuffle": "$null",
+            ],
+            "LastSet": Date(),
+            "LastUse": Date(),
+        ]
+    }
+
+    private func firstNonKMOSurface(named name: String, in store: Any) -> [String: Any]? {
+        guard let dict = store as? [String: Any] else { return nil }
+        var found: [String: Any]?
+        AppleWallpaperStore.forEachNode(in: dict) { _, node in
+            if found == nil,
+               let surface = node[name] as? [String: Any],
+               let content = surface["Content"] as? [String: Any],
+               let choices = content["Choices"] as? [[String: Any]],
+               let provider = choices.first?["Provider"] as? String,
+               provider != extensionBundleID {
+                found = surface
+            }
+        }
+        return found
     }
 
     private func applyChoiceToStores(surface: AppleWallpaperStore.Surface, stagedVideoURL: URL) {
         let choice: [String: Any] = [
             "Provider": extensionBundleID,
             "Files": [["relative": stagedVideoURL.absoluteString]],
-            "Configuration": "kmo-active-wallpaper"
+            "Configuration": Data("kmo-active-wallpaper".utf8)
         ]
 
         let manager = FileManager.default
@@ -187,11 +246,13 @@ final class LockScreenManager {
                 to: &store,
                 targetKey: "all",
                 surface: surface,
-                desktopFallback: [:],
-                idleFallback: [:]
+                desktopFallback: firstNonKMOSurface(named: "Desktop", in: store) ?? defaultSurface(),
+                idleFallback: firstNonKMOSurface(named: "Idle", in: store) ?? defaultSurface()
             )
 
             if let outData = try? PropertyListSerialization.data(fromPropertyList: store, format: .xml, options: 0) {
+                try? outData.write(to: url, options: .atomic)
+                Thread.sleep(forTimeInterval: 0.2)
                 try? outData.write(to: url, options: .atomic)
             }
         }

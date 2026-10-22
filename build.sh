@@ -42,11 +42,15 @@ mkdir -p "$EXT_DIR/Contents/MacOS"
 cp -f "$SCRIPT_DIR/extensions/KMOWallpaperExtension/Info.plist" "$EXT_DIR/Contents/Info.plist"
 
 swiftc -parse-as-library -O -target arm64-apple-macos14.4 \
+    -module-name KMOWallpaperExtension \
+    -Xlinker -e -Xlinker _NSExtensionMain \
     -import-objc-header "$SCRIPT_DIR/extensions/KMOWallpaperExtension/WallpaperExtension-Bridging-Header.h" \
     "$SCRIPT_DIR/extensions/KMOWallpaperExtension/"*.swift \
     -o "/tmp/KMOWallpaperExtension_arm64"
 
 swiftc -parse-as-library -O -target x86_64-apple-macos14.4 \
+    -module-name KMOWallpaperExtension \
+    -Xlinker -e -Xlinker _NSExtensionMain \
     -import-objc-header "$SCRIPT_DIR/extensions/KMOWallpaperExtension/WallpaperExtension-Bridging-Header.h" \
     "$SCRIPT_DIR/extensions/KMOWallpaperExtension/"*.swift \
     -o "/tmp/KMOWallpaperExtension_x86_64"
@@ -64,10 +68,11 @@ swiftc -O -target x86_64-apple-macos13.0 "$SCRIPT_DIR/main.swift" "$SCRIPT_DIR/s
 lipo -create "/tmp/KMO_LiveWallpaper_arm64" "/tmp/KMO_LiveWallpaper_x86_64" -output "$APP_DIR/Contents/MacOS/KMO_LiveWallpaper"
 rm -f "/tmp/KMO_LiveWallpaper_arm64" "/tmp/KMO_LiveWallpaper_x86_64"
 
-# Dọn dẹp metadata & Ký mã toàn diện (Ad-hoc codesign)
+# Dọn dẹp metadata & Ký mã toàn diện (Ad-hoc codesign giữ nguyên entitlements của Extension)
 dot_clean "$APP_DIR" 2>/dev/null || true
 xattr -cr "$APP_DIR" 2>/dev/null || true
-codesign --force --deep --sign - "$APP_DIR"
+codesign --force --sign - --entitlements "$SCRIPT_DIR/extensions/KMOWallpaperExtension/KMOWallpaperExtension.entitlements" "$EXT_DIR"
+codesign --force --sign - "$APP_DIR"
 
 echo "📦 1/3: Đang đóng gói file ZIP Universal..."
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$SCRIPT_DIR/KMO_LiveWallpaper-macOS-Universal.zip"
