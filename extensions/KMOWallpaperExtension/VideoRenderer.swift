@@ -55,8 +55,17 @@ final class VideoRenderer: @unchecked Sendable {
         }
 
         let displayLayer = AVSampleBufferDisplayLayer()
-        displayLayer.videoGravity = .resizeAspectFill
-        displayLayer.frame = rootLayer.bounds
+        let prefs = ExtensionPreferences.shared
+        switch prefs.gravityMode {
+        case 1: displayLayer.videoGravity = .resizeAspect
+        case 2: displayLayer.videoGravity = .resize
+        default: displayLayer.videoGravity = .resizeAspectFill
+        }
+        let w = rootLayer.bounds.width * prefs.zoomScale
+        let h = rootLayer.bounds.height * prefs.zoomScale
+        let x = (rootLayer.bounds.width - w) / 2.0 + prefs.offsetX
+        let y = (rootLayer.bounds.height - h) / 2.0 + prefs.offsetY
+        displayLayer.frame = CGRect(x: x, y: y, width: w, height: h)
         displayLayer.contentsScale = rootLayer.contentsScale
         displayLayer.isOpaque = true
         disallowEmptyVideoLayerCompositing(displayLayer)
@@ -178,6 +187,36 @@ final class VideoRenderer: @unchecked Sendable {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             displayLayer.isHidden = hidden
+            CATransaction.commit()
+            CATransaction.flush()
+        }
+    }
+
+    func applyLayout(
+        bounds: CGRect,
+        gravityMode: Int,
+        zoomScale: CGFloat,
+        offsetX: CGFloat,
+        offsetY: CGFloat
+    ) {
+        queue.async { [weak self] in
+            guard let self, isRunning else { return }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            switch gravityMode {
+            case 1:
+                self.displayLayer.videoGravity = .resizeAspect
+            case 2:
+                self.displayLayer.videoGravity = .resize
+            default:
+                self.displayLayer.videoGravity = .resizeAspectFill
+            }
+
+            let w = bounds.width * zoomScale
+            let h = bounds.height * zoomScale
+            let x = (bounds.width - w) / 2.0 + offsetX
+            let y = (bounds.height - h) / 2.0 + offsetY
+            self.displayLayer.frame = CGRect(x: x, y: y, width: w, height: h)
             CATransaction.commit()
             CATransaction.flush()
         }

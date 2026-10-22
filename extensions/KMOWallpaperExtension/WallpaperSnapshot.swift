@@ -70,17 +70,29 @@ enum WallpaperSnapshot {
                 | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { return nil }
 
-        // Aspect fill, to match what the wallpaper layers do, so the exported
-        // picture is framed the way the video is on the same screen.
+        // Framed and zoomed to match what the wallpaper layers do
+        let prefs = ExtensionPreferences.shared
         let imageWidth = CGFloat(image.width)
         let imageHeight = CGFloat(image.height)
-        let scale = max(CGFloat(width) / imageWidth, CGFloat(height) / imageHeight)
-        let drawn = CGSize(width: imageWidth * scale, height: imageHeight * scale)
+        let baseScale: CGFloat
+        switch prefs.gravityMode {
+        case 1:
+            baseScale = min(CGFloat(width) / imageWidth, CGFloat(height) / imageHeight)
+        case 2:
+            baseScale = 1.0
+        default:
+            baseScale = max(CGFloat(width) / imageWidth, CGFloat(height) / imageHeight)
+        }
+        let finalScale = (prefs.gravityMode == 2) ? 1.0 : (baseScale * prefs.zoomScale)
+        let drawnWidth = (prefs.gravityMode == 2) ? CGFloat(width) : (imageWidth * finalScale)
+        let drawnHeight = (prefs.gravityMode == 2) ? CGFloat(height) : (imageHeight * finalScale)
+        let x = (CGFloat(width) - drawnWidth) / 2 + prefs.offsetX
+        let y = (CGFloat(height) - drawnHeight) / 2 + prefs.offsetY
         context.draw(image, in: CGRect(
-            x: (CGFloat(width) - drawn.width) / 2,
-            y: (CGFloat(height) - drawn.height) / 2,
-            width: drawn.width,
-            height: drawn.height
+            x: x,
+            y: y,
+            width: drawnWidth,
+            height: drawnHeight
         ))
         return surface
     }

@@ -8,10 +8,22 @@ final class ExtensionPreferences: @unchecked Sendable {
 
     private struct FileContents: Codable {
         var alwaysPauseDesktop: Bool
+        var gravityMode: Int?
+        var zoomScale: Double?
+        var offsetX: Double?
+        var offsetY: Double?
+        var contrast: Double?
+        var saturation: Double?
     }
 
     private let lock = NSLock()
     private var pauseDesktop = true
+    private var currentGravityMode: Int = 0
+    private var currentZoomScale: CGFloat = 1.0
+    private var currentOffsetX: CGFloat = 0.0
+    private var currentOffsetY: CGFloat = 0.0
+    private var currentContrast: Float = 1.05
+    private var currentSaturation: Float = 1.05
 
     private static var url: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -49,10 +61,47 @@ final class ExtensionPreferences: @unchecked Sendable {
         return pauseDesktop
     }
 
+    var gravityMode: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentGravityMode
+    }
+
+    var zoomScale: CGFloat {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentZoomScale
+    }
+
+    var offsetX: CGFloat {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentOffsetX
+    }
+
+    var offsetY: CGFloat {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentOffsetY
+    }
+
+    var contrast: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentContrast
+    }
+
+    var saturation: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentSaturation
+    }
+
     /// The app writes preferences and the desktop still through the same
     /// notification, so both are picked up here.
     func reloadAndApply() {
         reload()
+        RendererState.shared.applyCurrentStyling()
         RendererState.shared.refreshDesktopStill()
     }
 
@@ -62,6 +111,12 @@ final class ExtensionPreferences: @unchecked Sendable {
         else { return }
         lock.lock()
         pauseDesktop = contents.alwaysPauseDesktop
+        currentGravityMode = contents.gravityMode ?? 0
+        currentZoomScale = CGFloat(contents.zoomScale ?? 1.0)
+        currentOffsetX = CGFloat(contents.offsetX ?? 0.0)
+        currentOffsetY = CGFloat(contents.offsetY ?? 0.0)
+        currentContrast = Float(contents.contrast ?? 1.05)
+        currentSaturation = Float(contents.saturation ?? 1.05)
         lock.unlock()
     }
 }

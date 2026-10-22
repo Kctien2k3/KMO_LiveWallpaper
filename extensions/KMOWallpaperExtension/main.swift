@@ -280,6 +280,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             if isRotationChoice(info.choiceID) {
                 wallpaper.stagedIdentity = FileIdentity.of(videoURL)
             }
+            wallpaper.applyStyling()
             RendererState.shared.install(wallpaper, for: key)
             // A surface is not trusted to have come up right. See
             // RendererState.scheduleStillReassert for what was measured.

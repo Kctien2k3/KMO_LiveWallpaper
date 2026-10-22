@@ -80,6 +80,28 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var saturationSlider: NSSlider?
     var saturationValueLabel: NSTextField?
 
+    // Quản lý hiển thị riêng biệt & Đồng bộ Màn hình khóa / Trình bảo vệ màn hình
+    var syncLockScreenSettings: Bool = true // Mặc định: Tự động đồng bộ với màn hình chính
+    var lockGravityMode: Int = 0
+    var lockZoomScale: CGFloat = 1.0
+    var lockOffsetX: CGFloat = 0.0
+    var lockOffsetY: CGFloat = 0.0
+    var lockContrastValue: Float = 1.05
+    var lockSaturationValue: Float = 1.05
+    var currentScopeIndex: Int = 0 // 0: Màn hình chính, 1: Màn hình khóa & Chờ
+
+    var scopeSegment: NSSegmentedControl?
+    var scopeHintLabel: NSTextField?
+    var syncLockScreenSwitch: NSSwitch?
+
+    let savedSyncLockKey = "SavedSyncLockScreenSettingsV1"
+    let savedLockGravityKey = "SavedLockGravityMode"
+    let savedLockZoomKey = "SavedLockZoomScale"
+    let savedLockOffsetXKey = "SavedLockOffsetX"
+    let savedLockOffsetYKey = "SavedLockOffsetY"
+    let savedLockContrastKey = "SavedLockContrastValueV1"
+    let savedLockSaturationKey = "SavedLockSaturationValueV1"
+
     // Thanh Menu Bar
     var menuAutoPause90Item: NSMenuItem!
     var menuCeilingItem: NSMenuItem!
@@ -205,6 +227,46 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ceilingEnabled = true
         }
 
+        if UserDefaults.standard.object(forKey: savedSyncLockKey) != nil {
+            syncLockScreenSettings = UserDefaults.standard.bool(forKey: savedSyncLockKey)
+        } else {
+            syncLockScreenSettings = true // Mặc định: tự động đồng bộ kích cỡ & màu với desktop
+        }
+
+        if UserDefaults.standard.object(forKey: savedLockGravityKey) != nil {
+            lockGravityMode = max(0, min(2, UserDefaults.standard.integer(forKey: savedLockGravityKey)))
+        } else {
+            lockGravityMode = gravityMode
+        }
+        if UserDefaults.standard.object(forKey: savedLockZoomKey) != nil {
+            lockZoomScale = CGFloat(UserDefaults.standard.double(forKey: savedLockZoomKey))
+            if lockZoomScale < 0.2 { lockZoomScale = 1.0 }
+        } else {
+            lockZoomScale = zoomScale
+        }
+        if UserDefaults.standard.object(forKey: savedLockOffsetXKey) != nil {
+            lockOffsetX = CGFloat(UserDefaults.standard.double(forKey: savedLockOffsetXKey))
+        } else {
+            lockOffsetX = offsetX
+        }
+        if UserDefaults.standard.object(forKey: savedLockOffsetYKey) != nil {
+            lockOffsetY = CGFloat(UserDefaults.standard.double(forKey: savedLockOffsetYKey))
+        } else {
+            lockOffsetY = offsetY
+        }
+        if UserDefaults.standard.object(forKey: savedLockContrastKey) != nil {
+            let val = Float(UserDefaults.standard.double(forKey: savedLockContrastKey))
+            lockContrastValue = max(0.80, min(1.30, val))
+        } else {
+            lockContrastValue = contrastValue
+        }
+        if UserDefaults.standard.object(forKey: savedLockSaturationKey) != nil {
+            let val = Float(UserDefaults.standard.double(forKey: savedLockSaturationKey))
+            lockSaturationValue = max(0.50, min(1.50, val))
+        } else {
+            lockSaturationValue = saturationValue
+        }
+
         let launchAgentsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents")
         let plistURL = launchAgentsDir.appendingPathComponent("com.kmo.KMO_LiveWallpaper.plist")
@@ -245,6 +307,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let targetURL = activeVideoURL {
             resolveAndLoadVideo(originalURL: targetURL)
             LockScreenManager.shared.registerExtension()
+            syncLockScreenPreferencesToExtension()
             if LockScreenManager.shared.lockScreenEnabled || LockScreenManager.shared.screenSaverEnabled {
                 LockScreenManager.shared.updateActiveVideo(url: targetURL)
             }
@@ -711,7 +774,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 802)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 860)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -735,7 +798,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
         // 1. CARD 1: Video & Tuỳ chọn phát (Height: 126)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 630, width: cardW, height: 126))
+        let card1 = makeCard(frame: NSRect(x: margin, y: 712, width: cardW, height: 126))
         visualEffect.addSubview(card1)
 
         addRowIcon("film", to: card1, y: 93)
@@ -772,118 +835,144 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         fpsSegment?.frame = NSRect(x: 196, y: 10, width: 228, height: 24)
         card1.addSubview(fpsSegment!)
 
-        // 2. CARD 2: Khung hình & Màu sắc (Height: 256)
-        let card2 = makeCard(frame: NSRect(x: margin, y: 360, width: cardW, height: 256))
+        // 2. CARD 2: Khung hình & Màu sắc (Height: 306)
+        let card2 = makeCard(frame: NSRect(x: margin, y: 394, width: cardW, height: 306))
         visualEffect.addSubview(card2)
 
-        addRowIcon("aspectratio", to: card2, y: 223)
-        card2.addSubview(makeLabel("Khung hình", frame: NSRect(x: 40, y: 222, width: 84, height: 20), bold: false, size: 13))
+        addRowIcon("slider.horizontal.2.square", to: card2, y: 271)
+        card2.addSubview(makeLabel("Áp dụng cho", frame: NSRect(x: 40, y: 270, width: 140, height: 20), bold: false, size: 13))
+
+        scopeSegment = NSSegmentedControl(labels: ["🖥️ Màn chính", "🔒 Khóa & Chờ"], trackingMode: .selectOne, target: self, action: #selector(scopeSegmentChanged(_:)))
+        scopeSegment?.selectedSegment = currentScopeIndex
+        scopeSegment?.frame = NSRect(x: 196, y: 268, width: 228, height: 24)
+        card2.addSubview(scopeSegment!)
+
+        addRowDivider(to: card2, y: 258)
+
+        addRowIcon("aspectratio", to: card2, y: 228)
+        card2.addSubview(makeLabel("Khung hình", frame: NSRect(x: 40, y: 227, width: 84, height: 20), bold: false, size: 13))
 
         let resetBtn = NSButton(title: "Đặt lại", target: self, action: #selector(resetTransform))
         resetBtn.bezelStyle = .rounded
         resetBtn.controlSize = .small
         resetBtn.font = NSFont.systemFont(ofSize: 11)
-        resetBtn.frame = NSRect(x: 128, y: 220, width: 60, height: 24)
+        resetBtn.frame = NSRect(x: 128, y: 225, width: 60, height: 24)
         card2.addSubview(resetBtn)
 
         gravitySegment = NSSegmentedControl(labels: ["Lấp đầy", "Vừa khít", "Kéo giãn"], trackingMode: .selectOne, target: self, action: #selector(displaySettingsChanged))
-        gravitySegment?.selectedSegment = gravityMode
-        gravitySegment?.frame = NSRect(x: 196, y: 220, width: 228, height: 24)
+        gravitySegment?.selectedSegment = (currentScopeIndex == 0) ? gravityMode : lockGravityMode
+        gravitySegment?.frame = NSRect(x: 196, y: 225, width: 228, height: 24)
         card2.addSubview(gravitySegment!)
 
-        addRowDivider(to: card2, y: 212)
+        addRowDivider(to: card2, y: 215)
 
-        addRowIcon("plus.magnifyingglass", to: card2, y: 181)
-        card2.addSubview(makeLabel("Thu phóng", frame: NSRect(x: 40, y: 180, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("plus.magnifyingglass", to: card2, y: 185)
+        card2.addSubview(makeLabel("Thu phóng", frame: NSRect(x: 40, y: 184, width: 95, height: 20), bold: false, size: 13))
 
-        zoomSlider = NSSlider(value: Double(zoomScale * 100), minValue: 50, maxValue: 200, target: self, action: #selector(displaySettingsChanged))
-        zoomSlider?.frame = NSRect(x: 196, y: 180, width: 176, height: 20)
+        let curZ = (currentScopeIndex == 0) ? zoomScale : lockZoomScale
+        zoomSlider = NSSlider(value: Double(curZ * 100), minValue: 50, maxValue: 200, target: self, action: #selector(displaySettingsChanged))
+        zoomSlider?.frame = NSRect(x: 196, y: 184, width: 176, height: 20)
         zoomSlider?.isContinuous = true
         card2.addSubview(zoomSlider!)
 
-        zoomValueLabel = makeLabel("\(Int(round(zoomScale * 100)))%", frame: NSRect(x: 376, y: 180, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        zoomValueLabel = makeLabel("\(Int(round(curZ * 100)))%", frame: NSRect(x: 376, y: 184, width: 46, height: 20), bold: false, size: 12, secondary: true)
         zoomValueLabel?.alignment = .right
         card2.addSubview(zoomValueLabel!)
 
-        addRowDivider(to: card2, y: 170)
+        addRowDivider(to: card2, y: 172)
 
-        addRowIcon("arrow.left.and.right", to: card2, y: 139)
-        card2.addSubview(makeLabel("Dịch ngang", frame: NSRect(x: 40, y: 138, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("arrow.left.and.right", to: card2, y: 142)
+        card2.addSubview(makeLabel("Dịch ngang", frame: NSRect(x: 40, y: 141, width: 95, height: 20), bold: false, size: 13))
 
-        offsetXSlider = NSSlider(value: Double(offsetX), minValue: -600, maxValue: 600, target: self, action: #selector(displaySettingsChanged))
-        offsetXSlider?.frame = NSRect(x: 196, y: 138, width: 176, height: 20)
+        let curX = (currentScopeIndex == 0) ? offsetX : lockOffsetX
+        offsetXSlider = NSSlider(value: Double(curX), minValue: -600, maxValue: 600, target: self, action: #selector(displaySettingsChanged))
+        offsetXSlider?.frame = NSRect(x: 196, y: 141, width: 176, height: 20)
         offsetXSlider?.isContinuous = true
         card2.addSubview(offsetXSlider!)
 
-        offsetXValueLabel = makeLabel("\(Int(round(offsetX)))", frame: NSRect(x: 376, y: 138, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        offsetXValueLabel = makeLabel("\(Int(round(curX)))", frame: NSRect(x: 376, y: 141, width: 46, height: 20), bold: false, size: 12, secondary: true)
         offsetXValueLabel?.alignment = .right
         card2.addSubview(offsetXValueLabel!)
 
-        addRowDivider(to: card2, y: 128)
+        addRowDivider(to: card2, y: 129)
 
-        addRowIcon("arrow.up.and.down", to: card2, y: 97)
-        card2.addSubview(makeLabel("Dịch dọc", frame: NSRect(x: 40, y: 96, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("arrow.up.and.down", to: card2, y: 99)
+        card2.addSubview(makeLabel("Dịch dọc", frame: NSRect(x: 40, y: 98, width: 95, height: 20), bold: false, size: 13))
 
-        offsetYSlider = NSSlider(value: Double(offsetY), minValue: -500, maxValue: 500, target: self, action: #selector(displaySettingsChanged))
-        offsetYSlider?.frame = NSRect(x: 196, y: 96, width: 176, height: 20)
+        let curY = (currentScopeIndex == 0) ? offsetY : lockOffsetY
+        offsetYSlider = NSSlider(value: Double(curY), minValue: -500, maxValue: 500, target: self, action: #selector(displaySettingsChanged))
+        offsetYSlider?.frame = NSRect(x: 196, y: 98, width: 176, height: 20)
         offsetYSlider?.isContinuous = true
         card2.addSubview(offsetYSlider!)
 
-        offsetYValueLabel = makeLabel("\(Int(round(offsetY)))", frame: NSRect(x: 376, y: 96, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        offsetYValueLabel = makeLabel("\(Int(round(curY)))", frame: NSRect(x: 376, y: 98, width: 46, height: 20), bold: false, size: 12, secondary: true)
         offsetYValueLabel?.alignment = .right
         card2.addSubview(offsetYValueLabel!)
 
         addRowDivider(to: card2, y: 86)
 
-        addRowIcon("circle.righthalf.filled", to: card2, y: 55)
-        card2.addSubview(makeLabel("Tương phản", frame: NSRect(x: 40, y: 54, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("circle.righthalf.filled", to: card2, y: 56)
+        card2.addSubview(makeLabel("Tương phản", frame: NSRect(x: 40, y: 55, width: 95, height: 20), bold: false, size: 13))
 
-        contrastSlider = NSSlider(value: Double(contrastValue * 100), minValue: 80, maxValue: 130, target: self, action: #selector(colorSettingsChanged))
-        contrastSlider?.frame = NSRect(x: 196, y: 54, width: 176, height: 20)
+        let curC = (currentScopeIndex == 0) ? contrastValue : lockContrastValue
+        contrastSlider = NSSlider(value: Double(curC * 100), minValue: 80, maxValue: 130, target: self, action: #selector(colorSettingsChanged))
+        contrastSlider?.frame = NSRect(x: 196, y: 55, width: 176, height: 20)
         contrastSlider?.isContinuous = true
         card2.addSubview(contrastSlider!)
 
-        contrastValueLabel = makeLabel("\(Int(round(contrastValue * 100)))%", frame: NSRect(x: 376, y: 54, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        contrastValueLabel = makeLabel("\(Int(round(curC * 100)))%", frame: NSRect(x: 376, y: 55, width: 46, height: 20), bold: false, size: 12, secondary: true)
         contrastValueLabel?.alignment = .right
         card2.addSubview(contrastValueLabel!)
 
-        addRowDivider(to: card2, y: 44)
+        addRowDivider(to: card2, y: 43)
 
         addRowIcon("paintpalette", to: card2, y: 13)
         card2.addSubview(makeLabel("Độ rực rỡ", frame: NSRect(x: 40, y: 12, width: 95, height: 20), bold: false, size: 13))
 
-        saturationSlider = NSSlider(value: Double(saturationValue * 100), minValue: 50, maxValue: 150, target: self, action: #selector(colorSettingsChanged))
+        let curS = (currentScopeIndex == 0) ? saturationValue : lockSaturationValue
+        saturationSlider = NSSlider(value: Double(curS * 100), minValue: 50, maxValue: 150, target: self, action: #selector(colorSettingsChanged))
         saturationSlider?.frame = NSRect(x: 196, y: 12, width: 176, height: 20)
         saturationSlider?.isContinuous = true
         card2.addSubview(saturationSlider!)
 
-        saturationValueLabel = makeLabel("\(Int(round(saturationValue * 100)))%", frame: NSRect(x: 376, y: 12, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        saturationValueLabel = makeLabel("\(Int(round(curS * 100)))%", frame: NSRect(x: 376, y: 12, width: 46, height: 20), bold: false, size: 12, secondary: true)
         saturationValueLabel?.alignment = .right
         card2.addSubview(saturationValueLabel!)
 
-        // 3. CARD 3: Màn hình khóa & Screen Saver (Height: 90)
-        let card3 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 90))
+        // 3. CARD 3: Màn hình khóa & Screen Saver (Height: 128)
+        let card3 = makeCard(frame: NSRect(x: margin, y: 254, width: cardW, height: 128))
         visualEffect.addSubview(card3)
 
-        addRowIcon("lock.fill", to: card3, y: 53)
-        card3.addSubview(makeLabel("Chạy trên Màn hình khóa (Lock screen)", frame: NSRect(x: 40, y: 52, width: 320, height: 20), bold: false, size: 13))
+        addRowIcon("lock.fill", to: card3, y: 92)
+        card3.addSubview(makeLabel("Chạy trên Màn hình khóa (Lock screen)", frame: NSRect(x: 40, y: 91, width: 320, height: 20), bold: false, size: 13))
 
-        lockScreenSwitch = NSSwitch(frame: NSRect(x: 384, y: 49, width: 40, height: 22))
+        lockScreenSwitch = NSSwitch(frame: NSRect(x: 384, y: 88, width: 40, height: 22))
         lockScreenSwitch?.state = LockScreenManager.shared.lockScreenEnabled ? .on : .off
         lockScreenSwitch?.target = self
         lockScreenSwitch?.action = #selector(toggleLockScreenSwitch)
         card3.addSubview(lockScreenSwitch!)
 
-        addRowDivider(to: card3, y: 42)
+        addRowDivider(to: card3, y: 80)
 
-        addRowIcon("moon.stars.fill", to: card3, y: 13)
-        card3.addSubview(makeLabel("Chạy trên Trình bảo vệ màn hình (Screen saver)", frame: NSRect(x: 40, y: 12, width: 320, height: 20), bold: false, size: 13))
+        addRowIcon("moon.stars.fill", to: card3, y: 52)
+        card3.addSubview(makeLabel("Chạy trên Trình bảo vệ màn hình (Screen saver)", frame: NSRect(x: 40, y: 51, width: 320, height: 20), bold: false, size: 13))
 
-        screenSaverSwitch = NSSwitch(frame: NSRect(x: 384, y: 9, width: 40, height: 22))
+        screenSaverSwitch = NSSwitch(frame: NSRect(x: 384, y: 48, width: 40, height: 22))
         screenSaverSwitch?.state = LockScreenManager.shared.screenSaverEnabled ? .on : .off
         screenSaverSwitch?.target = self
         screenSaverSwitch?.action = #selector(toggleScreenSaverSwitch)
         card3.addSubview(screenSaverSwitch!)
+
+        addRowDivider(to: card3, y: 40)
+
+        addRowIcon("link", to: card3, y: 12)
+        card3.addSubview(makeLabel("Đồng bộ kích cỡ & màu với màn chính", frame: NSRect(x: 40, y: 11, width: 320, height: 20), bold: false, size: 13))
+
+        syncLockScreenSwitch = NSSwitch(frame: NSRect(x: 384, y: 8, width: 40, height: 22))
+        syncLockScreenSwitch?.state = syncLockScreenSettings ? .on : .off
+        syncLockScreenSwitch?.target = self
+        syncLockScreenSwitch?.action = #selector(toggleSyncLockScreenSwitch)
+        card3.addSubview(syncLockScreenSwitch!)
 
         // 4. CARD 4: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
         let card4 = makeCard(frame: NSRect(x: margin, y: 88, width: cardW, height: 154))
@@ -1008,10 +1097,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             updateResolutionSegments(for: targetURL)
         }
         fpsSegment?.selectedSegment = fpsMode
-        contrastSlider?.doubleValue = Double(contrastValue * 100.0)
-        contrastValueLabel?.stringValue = "\(Int(round(contrastValue * 100.0)))%"
-        saturationSlider?.doubleValue = Double(saturationValue * 100.0)
-        saturationValueLabel?.stringValue = "\(Int(round(saturationValue * 100.0)))%"
+        scopeSegment?.selectedSegment = currentScopeIndex
+        syncLockScreenSwitch?.state = syncLockScreenSettings ? .on : .off
+        refreshCard2UIForCurrentScope()
         lockScreenSwitch?.state = LockScreenManager.shared.lockScreenEnabled ? .on : .off
         screenSaverSwitch?.state = LockScreenManager.shared.screenSaverEnabled ? .on : .off
         NSApp.setActivationPolicy(.regular)
@@ -1043,6 +1131,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         saturationValueLabel = nil
         lockScreenSwitch = nil
         screenSaverSwitch = nil
+        scopeSegment = nil
+        scopeHintLabel = nil
+        syncLockScreenSwitch = nil
         ceilingSwitch = nil
         launchAtLoginSwitch = nil
         muteSwitch = nil
@@ -1050,6 +1141,109 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
         malloc_zone_pressure_relief(nil, 0)
         updatePlaybackState()
+    }
+
+    @objc func scopeSegmentChanged(_ sender: NSSegmentedControl) {
+        currentScopeIndex = sender.selectedSegment
+        refreshCard2UIForCurrentScope()
+    }
+
+    @objc func toggleSyncLockScreenSwitch() {
+        guard let sw = syncLockScreenSwitch else { return }
+        syncLockScreenSettings = (sw.state == .on)
+        UserDefaults.standard.set(syncLockScreenSettings, forKey: savedSyncLockKey)
+        if syncLockScreenSettings {
+            // Khi bật đồng bộ: lập tức sao chép thông số từ màn chính sang màn hình khóa
+            lockGravityMode = gravityMode
+            lockZoomScale = zoomScale
+            lockOffsetX = offsetX
+            lockOffsetY = offsetY
+            lockContrastValue = contrastValue
+            lockSaturationValue = saturationValue
+
+            UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
+            UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
+            UserDefaults.standard.set(Double(lockOffsetX), forKey: savedLockOffsetXKey)
+            UserDefaults.standard.set(Double(lockOffsetY), forKey: savedLockOffsetYKey)
+            UserDefaults.standard.set(Double(lockContrastValue), forKey: savedLockContrastKey)
+            UserDefaults.standard.set(Double(lockSaturationValue), forKey: savedLockSaturationKey)
+
+            if currentScopeIndex == 1 {
+                refreshCard2UIForCurrentScope()
+            }
+        }
+        syncLockScreenPreferencesToExtension()
+    }
+
+    func refreshCard2UIForCurrentScope() {
+        let g: Int
+        let z: CGFloat
+        let ox: CGFloat
+        let oy: CGFloat
+        let c: Float
+        let s: Float
+
+        if currentScopeIndex == 0 {
+            g = gravityMode
+            z = zoomScale
+            ox = offsetX
+            oy = offsetY
+            c = contrastValue
+            s = saturationValue
+        } else {
+            g = lockGravityMode
+            z = lockZoomScale
+            ox = lockOffsetX
+            oy = lockOffsetY
+            c = lockContrastValue
+            s = lockSaturationValue
+        }
+
+        gravitySegment?.selectedSegment = g
+        zoomSlider?.doubleValue = Double(z * 100.0)
+        zoomValueLabel?.stringValue = "\(Int(round(z * 100.0)))%"
+        offsetXSlider?.doubleValue = Double(ox)
+        offsetXValueLabel?.stringValue = "\(Int(round(ox)))"
+        offsetYSlider?.doubleValue = Double(oy)
+        offsetYValueLabel?.stringValue = "\(Int(round(oy)))"
+        contrastSlider?.doubleValue = Double(c * 100.0)
+        contrastValueLabel?.stringValue = "\(Int(round(c * 100.0)))%"
+        saturationSlider?.doubleValue = Double(s * 100.0)
+        saturationValueLabel?.stringValue = "\(Int(round(s * 100.0)))%"
+    }
+
+    func syncLockScreenPreferencesToExtension() {
+        let g: Int
+        let z: Double
+        let ox: Double
+        let oy: Double
+        let c: Double
+        let s: Double
+
+        if syncLockScreenSettings {
+            g = gravityMode
+            z = Double(zoomScale)
+            ox = Double(offsetX)
+            oy = Double(offsetY)
+            c = Double(contrastValue)
+            s = Double(saturationValue)
+        } else {
+            g = lockGravityMode
+            z = Double(lockZoomScale)
+            ox = Double(lockOffsetX)
+            oy = Double(lockOffsetY)
+            c = Double(lockContrastValue)
+            s = Double(lockSaturationValue)
+        }
+
+        LockScreenManager.shared.syncPreferences(
+            gravityMode: g,
+            zoomScale: z,
+            offsetX: ox,
+            offsetY: oy,
+            contrast: c,
+            saturation: s
+        )
     }
 
     @objc func toggleLockScreenSwitch() {
@@ -1133,31 +1327,69 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pausedByCeiling = false
         graceUntil = Date().addingTimeInterval(3.0)
         previewingGeometryUntil = Date().addingTimeInterval(3.0)
-        if let gSeg = gravitySegment {
-            gravityMode = gSeg.selectedSegment
-        }
+
+        let newGravity = gravitySegment?.selectedSegment ?? 0
+        let newZoom = CGFloat((zoomSlider?.doubleValue ?? 100.0) / 100.0)
+        let newOffsetX = CGFloat(offsetXSlider?.doubleValue ?? 0.0)
+        let newOffsetY = CGFloat(offsetYSlider?.doubleValue ?? 0.0)
+
         if let zSlider = zoomSlider {
-            zoomScale = CGFloat(zSlider.doubleValue / 100.0)
             zoomValueLabel?.stringValue = "\(Int(round(zSlider.doubleValue)))%"
         }
         if let xSlider = offsetXSlider {
-            offsetX = CGFloat(xSlider.doubleValue)
             offsetXValueLabel?.stringValue = "\(Int(round(xSlider.doubleValue)))"
         }
         if let ySlider = offsetYSlider {
-            offsetY = CGFloat(ySlider.doubleValue)
             offsetYValueLabel?.stringValue = "\(Int(round(ySlider.doubleValue)))"
         }
 
-        UserDefaults.standard.set(gravityMode, forKey: savedGravityKey)
-        UserDefaults.standard.set(Double(zoomScale), forKey: savedZoomKey)
-        UserDefaults.standard.set(Double(offsetX), forKey: savedOffsetXKey)
-        UserDefaults.standard.set(Double(offsetY), forKey: savedOffsetYKey)
+        if currentScopeIndex == 0 {
+            // Màn hình chính
+            gravityMode = newGravity
+            zoomScale = newZoom
+            offsetX = newOffsetX
+            offsetY = newOffsetY
 
-        for player in players where !userPaused && player.rate == 0 {
-            player.rate = 1.0
+            UserDefaults.standard.set(gravityMode, forKey: savedGravityKey)
+            UserDefaults.standard.set(Double(zoomScale), forKey: savedZoomKey)
+            UserDefaults.standard.set(Double(offsetX), forKey: savedOffsetXKey)
+            UserDefaults.standard.set(Double(offsetY), forKey: savedOffsetYKey)
+
+            if syncLockScreenSettings {
+                lockGravityMode = gravityMode
+                lockZoomScale = zoomScale
+                lockOffsetX = offsetX
+                lockOffsetY = offsetY
+                UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
+                UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
+                UserDefaults.standard.set(Double(lockOffsetX), forKey: savedLockOffsetXKey)
+                UserDefaults.standard.set(Double(lockOffsetY), forKey: savedLockOffsetYKey)
+            }
+
+            for player in players where !userPaused && player.rate == 0 {
+                player.rate = 1.0
+            }
+            applyLayerTransformAndGravity()
+        } else {
+            // Màn hình khóa & Chờ (Tùy chỉnh riêng tự do)
+            if syncLockScreenSettings {
+                syncLockScreenSettings = false
+                UserDefaults.standard.set(false, forKey: savedSyncLockKey)
+                syncLockScreenSwitch?.state = .off
+            }
+
+            lockGravityMode = newGravity
+            lockZoomScale = newZoom
+            lockOffsetX = newOffsetX
+            lockOffsetY = newOffsetY
+
+            UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
+            UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
+            UserDefaults.standard.set(Double(lockOffsetX), forKey: savedLockOffsetXKey)
+            UserDefaults.standard.set(Double(lockOffsetY), forKey: savedLockOffsetYKey)
         }
-        applyLayerTransformAndGravity()
+
+        syncLockScreenPreferencesToExtension()
     }
 
     func applyColorFilterToAllPlayers() {
@@ -1175,47 +1407,106 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func colorSettingsChanged() {
+        let newContrast = Float((contrastSlider?.doubleValue ?? 105.0) / 100.0)
+        let newSaturation = Float((saturationSlider?.doubleValue ?? 105.0) / 100.0)
+
         if let cSlider = contrastSlider {
-            contrastValue = Float(cSlider.doubleValue) / 100.0
             contrastValueLabel?.stringValue = "\(Int(round(cSlider.doubleValue)))%"
         }
         if let sSlider = saturationSlider {
-            saturationValue = Float(sSlider.doubleValue) / 100.0
             saturationValueLabel?.stringValue = "\(Int(round(sSlider.doubleValue)))%"
         }
 
-        UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
-        UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
+        if currentScopeIndex == 0 {
+            contrastValue = newContrast
+            saturationValue = newSaturation
 
-        applyColorFilterToAllPlayers()
+            UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
+            UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
+
+            if syncLockScreenSettings {
+                lockContrastValue = contrastValue
+                lockSaturationValue = saturationValue
+                UserDefaults.standard.set(Double(lockContrastValue), forKey: savedLockContrastKey)
+                UserDefaults.standard.set(Double(lockSaturationValue), forKey: savedLockSaturationKey)
+            }
+
+            applyColorFilterToAllPlayers()
+        } else {
+            if syncLockScreenSettings {
+                syncLockScreenSettings = false
+                UserDefaults.standard.set(false, forKey: savedSyncLockKey)
+                syncLockScreenSwitch?.state = .off
+            }
+
+            lockContrastValue = newContrast
+            lockSaturationValue = newSaturation
+
+            UserDefaults.standard.set(Double(lockContrastValue), forKey: savedLockContrastKey)
+            UserDefaults.standard.set(Double(lockSaturationValue), forKey: savedLockSaturationKey)
+        }
+
+        syncLockScreenPreferencesToExtension()
     }
 
     @objc func resetTransform() {
-        gravityMode = 0
-        zoomScale = 1.0
-        offsetX = 0.0
-        offsetY = 0.0
-        contrastValue = 1.05
-        saturationValue = 1.05
+        if currentScopeIndex == 0 {
+            gravityMode = 0
+            zoomScale = 1.0
+            offsetX = 0.0
+            offsetY = 0.0
+            contrastValue = 1.05
+            saturationValue = 1.05
 
-        gravitySegment?.selectedSegment = 0
-        zoomSlider?.doubleValue = 100
-        offsetXSlider?.doubleValue = 0
-        offsetYSlider?.doubleValue = 0
-        contrastSlider?.doubleValue = 105
-        saturationSlider?.doubleValue = 105
+            UserDefaults.standard.set(gravityMode, forKey: savedGravityKey)
+            UserDefaults.standard.set(Double(zoomScale), forKey: savedZoomKey)
+            UserDefaults.standard.set(Double(offsetX), forKey: savedOffsetXKey)
+            UserDefaults.standard.set(Double(offsetY), forKey: savedOffsetYKey)
+            UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
+            UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
 
-        zoomValueLabel?.stringValue = "100%"
-        offsetXValueLabel?.stringValue = "0"
-        offsetYValueLabel?.stringValue = "0"
-        contrastValueLabel?.stringValue = "105%"
-        saturationValueLabel?.stringValue = "105%"
+            if syncLockScreenSettings {
+                lockGravityMode = 0
+                lockZoomScale = 1.0
+                lockOffsetX = 0.0
+                lockOffsetY = 0.0
+                lockContrastValue = 1.05
+                lockSaturationValue = 1.05
 
-        UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
-        UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
+                UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
+                UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
+                UserDefaults.standard.set(Double(lockOffsetX), forKey: savedLockOffsetXKey)
+                UserDefaults.standard.set(Double(lockOffsetY), forKey: savedLockOffsetYKey)
+                UserDefaults.standard.set(Double(lockContrastValue), forKey: savedLockContrastKey)
+                UserDefaults.standard.set(Double(lockSaturationValue), forKey: savedLockSaturationKey)
+            }
 
-        displaySettingsChanged()
-        applyColorFilterToAllPlayers()
+            applyLayerTransformAndGravity()
+            applyColorFilterToAllPlayers()
+        } else {
+            if syncLockScreenSettings {
+                syncLockScreenSettings = false
+                UserDefaults.standard.set(false, forKey: savedSyncLockKey)
+                syncLockScreenSwitch?.state = .off
+            }
+
+            lockGravityMode = 0
+            lockZoomScale = 1.0
+            lockOffsetX = 0.0
+            lockOffsetY = 0.0
+            lockContrastValue = 1.05
+            lockSaturationValue = 1.05
+
+            UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
+            UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
+            UserDefaults.standard.set(Double(lockOffsetX), forKey: savedLockOffsetXKey)
+            UserDefaults.standard.set(Double(lockOffsetY), forKey: savedLockOffsetYKey)
+            UserDefaults.standard.set(Double(lockContrastValue), forKey: savedLockContrastKey)
+            UserDefaults.standard.set(Double(lockSaturationValue), forKey: savedLockSaturationKey)
+        }
+
+        refreshCard2UIForCurrentScope()
+        syncLockScreenPreferencesToExtension()
     }
 
     func buildVideoComposition(for asset: AVAsset, mode: Int, fpsMode: Int) -> AVVideoComposition? {

@@ -2,6 +2,7 @@
 // copyright 2026 kageroumado; see THIRD_PARTY_NOTICES.md.
 import Foundation
 import QuartzCore
+import CoreImage
 
 struct SendableBox<Value>: @unchecked Sendable {
     let value: Value
@@ -241,11 +242,40 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// Whether this surface was last told to show its picture rather than its
     /// video: the lock screen behind the desktop, or a display that is asleep.
     var isHeld: Bool { wantsStill }
+
+    func applyStyling() {
+        let prefs = ExtensionPreferences.shared
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        rootLayer.masksToBounds = true
+
+        if let colorFilter = CIFilter(name: "CIColorControls") {
+            colorFilter.setValue(prefs.contrast, forKey: "inputContrast")
+            colorFilter.setValue(prefs.saturation, forKey: "inputSaturation")
+            colorFilter.setValue(0.0, forKey: "inputBrightness")
+            rootLayer.filters = [colorFilter]
+        }
+
+        renderer.applyLayout(
+            bounds: rootLayer.bounds,
+            gravityMode: prefs.gravityMode,
+            zoomScale: prefs.zoomScale,
+            offsetX: prefs.offsetX,
+            offsetY: prefs.offsetY
+        )
+        CATransaction.commit()
+    }
 }
 
 final class RendererState: @unchecked Sendable {
     static let shared = RendererState()
     static let lifecycleQueue = DispatchQueue(label: "com.kmo.KMO_LiveWallpaper.wallpaper-lifecycle")
+
+    func applyCurrentStyling() {
+        forEachWallpaper { wallpaper in
+            wallpaper.applyStyling()
+        }
+    }
 
     private let lock = NSLock()
     private var active: [WallpaperSurfaceKey: ActiveWallpaper] = [:]

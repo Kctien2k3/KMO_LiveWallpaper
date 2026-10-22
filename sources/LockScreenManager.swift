@@ -98,12 +98,48 @@ final class LockScreenManager {
         try? libData.write(to: containerDocsURL.appendingPathComponent("library.json"))
 
         // Write kmo-prefs.json
-        let prefsData = """
-        {"alwaysPauseDesktop":true}
-        """.data(using: .utf8)!
-        try? prefsData.write(to: containerDocsURL.appendingPathComponent("kmo-prefs.json"))
+        writePrefs()
 
         return destVideo
+    }
+
+    private var lastPrefsDict: [String: Any] = [
+        "alwaysPauseDesktop": true,
+        "gravityMode": 0,
+        "zoomScale": 1.0,
+        "offsetX": 0.0,
+        "offsetY": 0.0,
+        "contrast": 1.05,
+        "saturation": 1.05
+    ]
+
+    func syncPreferences(
+        gravityMode: Int,
+        zoomScale: Double,
+        offsetX: Double,
+        offsetY: Double,
+        contrast: Double,
+        saturation: Double
+    ) {
+        lastPrefsDict = [
+            "alwaysPauseDesktop": true,
+            "gravityMode": gravityMode,
+            "zoomScale": zoomScale,
+            "offsetX": offsetX,
+            "offsetY": offsetY,
+            "contrast": contrast,
+            "saturation": saturation
+        ]
+        writePrefs()
+        notifyExtension()
+    }
+
+    private func writePrefs() {
+        let manager = FileManager.default
+        try? manager.createDirectory(at: containerDocsURL, withIntermediateDirectories: true)
+        if let data = try? JSONSerialization.data(withJSONObject: lastPrefsDict, options: [.prettyPrinted]) {
+            try? data.write(to: containerDocsURL.appendingPathComponent("kmo-prefs.json"), options: .atomic)
+        }
     }
 
     func notifyExtension() {
