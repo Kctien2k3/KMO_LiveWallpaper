@@ -69,6 +69,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var muteSwitch: NSSwitch?
     var launchAtLoginSwitch: NSSwitch?
     var playPauseBtn: NSButton?
+    var lockScreenSwitch: NSSwitch?
+    var screenSaverSwitch: NSSwitch?
 
     // Bộ lọc màu sắc (Khắc phục QuickTime Gamma Shift, tinh chỉnh khớp VLC tự nhiên)
     var contrastValue: Float = 1.05   // 0.80 - 1.30, mặc định 1.05 (chuẩn tự nhiên khớp VLC)
@@ -242,6 +244,10 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if let targetURL = activeVideoURL {
             resolveAndLoadVideo(originalURL: targetURL)
+            LockScreenManager.shared.registerExtension()
+            if LockScreenManager.shared.lockScreenEnabled || LockScreenManager.shared.screenSaverEnabled {
+                LockScreenManager.shared.updateActiveVideo(url: targetURL)
+            }
         }
 
         startCeilingMonitor()
@@ -705,7 +711,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 698)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 802)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -729,7 +735,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
         // 1. CARD 1: Video & Tuỳ chọn phát (Height: 126)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 526, width: cardW, height: 126))
+        let card1 = makeCard(frame: NSRect(x: margin, y: 630, width: cardW, height: 126))
         visualEffect.addSubview(card1)
 
         addRowIcon("film", to: card1, y: 93)
@@ -767,7 +773,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         card1.addSubview(fpsSegment!)
 
         // 2. CARD 2: Khung hình & Màu sắc (Height: 256)
-        let card2 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 256))
+        let card2 = makeCard(frame: NSRect(x: margin, y: 360, width: cardW, height: 256))
         visualEffect.addSubview(card2)
 
         addRowIcon("aspectratio", to: card2, y: 223)
@@ -855,51 +861,75 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         saturationValueLabel?.alignment = .right
         card2.addSubview(saturationValueLabel!)
 
-        // 3. CARD 3: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
-        let card3 = makeCard(frame: NSRect(x: margin, y: 88, width: cardW, height: 154))
+        // 3. CARD 3: Màn hình khóa & Screen Saver (Height: 90)
+        let card3 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 90))
         visualEffect.addSubview(card3)
 
-        addRowIcon("macwindow", to: card3, y: 123)
-        card3.addSubview(makeLabel("Tự dừng khi cửa sổ đạt trên 90% màn hình", frame: NSRect(x: 40, y: 122, width: 320, height: 20), bold: false, size: 13))
+        addRowIcon("lock.fill", to: card3, y: 53)
+        card3.addSubview(makeLabel("Chạy trên Màn hình khóa (Lock screen)", frame: NSRect(x: 40, y: 52, width: 320, height: 20), bold: false, size: 13))
+
+        lockScreenSwitch = NSSwitch(frame: NSRect(x: 384, y: 49, width: 40, height: 22))
+        lockScreenSwitch?.state = LockScreenManager.shared.lockScreenEnabled ? .on : .off
+        lockScreenSwitch?.target = self
+        lockScreenSwitch?.action = #selector(toggleLockScreenSwitch)
+        card3.addSubview(lockScreenSwitch!)
+
+        addRowDivider(to: card3, y: 42)
+
+        addRowIcon("moon.stars.fill", to: card3, y: 13)
+        card3.addSubview(makeLabel("Chạy trên Trình bảo vệ màn hình (Screen saver)", frame: NSRect(x: 40, y: 12, width: 320, height: 20), bold: false, size: 13))
+
+        screenSaverSwitch = NSSwitch(frame: NSRect(x: 384, y: 9, width: 40, height: 22))
+        screenSaverSwitch?.state = LockScreenManager.shared.screenSaverEnabled ? .on : .off
+        screenSaverSwitch?.target = self
+        screenSaverSwitch?.action = #selector(toggleScreenSaverSwitch)
+        card3.addSubview(screenSaverSwitch!)
+
+        // 4. CARD 4: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
+        let card4 = makeCard(frame: NSRect(x: margin, y: 88, width: cardW, height: 154))
+        visualEffect.addSubview(card4)
+
+        addRowIcon("macwindow", to: card4, y: 123)
+        card4.addSubview(makeLabel("Tự dừng khi cửa sổ đạt trên 90% màn hình", frame: NSRect(x: 40, y: 122, width: 320, height: 20), bold: false, size: 13))
 
         autoPauseSwitch = NSSwitch(frame: NSRect(x: 384, y: 119, width: 40, height: 22))
         autoPauseSwitch?.state = autoPause90Enabled ? .on : .off
         autoPauseSwitch?.target = self
         autoPauseSwitch?.action = #selector(autoPauseChanged)
-        card3.addSubview(autoPauseSwitch!)
+        card4.addSubview(autoPauseSwitch!)
 
-        addRowDivider(to: card3, y: 112)
+        addRowDivider(to: card4, y: 112)
 
-        addRowIcon("cpu", to: card3, y: 85)
-        card3.addSubview(makeLabel("Trần tối ưu ≤ 8% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
+        addRowIcon("cpu", to: card4, y: 85)
+        card4.addSubview(makeLabel("Trần tối ưu ≤ 8% CPU & 80MB RAM", frame: NSRect(x: 40, y: 84, width: 320, height: 20), bold: false, size: 13))
 
         ceilingSwitch = NSSwitch(frame: NSRect(x: 384, y: 82, width: 40, height: 22))
         ceilingSwitch?.state = ceilingEnabled ? .on : .off
         ceilingSwitch?.target = self
         ceilingSwitch?.action = #selector(toggleCeilingSwitch)
-        card3.addSubview(ceilingSwitch!)
+        card4.addSubview(ceilingSwitch!)
 
-        addRowDivider(to: card3, y: 74)
+        addRowDivider(to: card4, y: 74)
 
-        addRowIcon("power", to: card3, y: 47)
-        card3.addSubview(makeLabel("Tự khởi động khi đăng nhập máy", frame: NSRect(x: 40, y: 46, width: 300, height: 20), bold: false, size: 13))
+        addRowIcon("power", to: card4, y: 47)
+        card4.addSubview(makeLabel("Tự khởi động khi đăng nhập máy", frame: NSRect(x: 40, y: 46, width: 300, height: 20), bold: false, size: 13))
 
         launchAtLoginSwitch = NSSwitch(frame: NSRect(x: 384, y: 44, width: 40, height: 22))
         launchAtLoginSwitch?.state = launchAtLoginEnabled ? .on : .off
         launchAtLoginSwitch?.target = self
         launchAtLoginSwitch?.action = #selector(toggleLaunchAtLoginSwitch)
-        card3.addSubview(launchAtLoginSwitch!)
+        card4.addSubview(launchAtLoginSwitch!)
 
-        addRowDivider(to: card3, y: 36)
+        addRowDivider(to: card4, y: 36)
 
-        addRowIcon("speaker.slash", to: card3, y: 9)
-        card3.addSubview(makeLabel("Tắt âm thanh video", frame: NSRect(x: 40, y: 8, width: 200, height: 20), bold: false, size: 13))
+        addRowIcon("speaker.slash", to: card4, y: 9)
+        card4.addSubview(makeLabel("Tắt âm thanh video", frame: NSRect(x: 40, y: 8, width: 200, height: 20), bold: false, size: 13))
 
         muteSwitch = NSSwitch(frame: NSRect(x: 384, y: 7, width: 40, height: 22))
         muteSwitch?.state = isMuted ? .on : .off
         muteSwitch?.target = self
         muteSwitch?.action = #selector(toggleMute)
-        card3.addSubview(muteSwitch!)
+        card4.addSubview(muteSwitch!)
 
         // 4. Footer Bar (2 Hàng rõ ràng chuẩn macOS - Hình 3)
         let footerDiv = NSView(frame: NSRect(x: margin, y: 76, width: cardW, height: 0.5))
@@ -982,6 +1012,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         contrastValueLabel?.stringValue = "\(Int(round(contrastValue * 100.0)))%"
         saturationSlider?.doubleValue = Double(saturationValue * 100.0)
         saturationValueLabel?.stringValue = "\(Int(round(saturationValue * 100.0)))%"
+        lockScreenSwitch?.state = LockScreenManager.shared.lockScreenEnabled ? .on : .off
+        screenSaverSwitch?.state = LockScreenManager.shared.screenSaverEnabled ? .on : .off
         NSApp.setActivationPolicy(.regular)
         controlWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -1009,6 +1041,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         contrastValueLabel = nil
         saturationSlider = nil
         saturationValueLabel = nil
+        lockScreenSwitch = nil
+        screenSaverSwitch = nil
         ceilingSwitch = nil
         launchAtLoginSwitch = nil
         muteSwitch = nil
@@ -1016,6 +1050,16 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
         malloc_zone_pressure_relief(nil, 0)
         updatePlaybackState()
+    }
+
+    @objc func toggleLockScreenSwitch() {
+        guard let sw = lockScreenSwitch else { return }
+        LockScreenManager.shared.setLockScreen(enabled: sw.state == .on, videoURL: activeVideoURL)
+    }
+
+    @objc func toggleScreenSaverSwitch() {
+        guard let sw = screenSaverSwitch else { return }
+        LockScreenManager.shared.setScreenSaver(enabled: sw.state == .on, videoURL: activeVideoURL)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -1679,6 +1723,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             graceUntil = Date().addingTimeInterval(3.0)
             updateResolutionSegments(for: url, setDefaultToMax: true)
             resolveAndLoadVideo(originalURL: url)
+            LockScreenManager.shared.updateActiveVideo(url: url)
         }
         malloc_zone_pressure_relief(nil, 0)
     }

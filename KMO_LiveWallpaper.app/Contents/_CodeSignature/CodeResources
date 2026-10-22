@@ -11,6 +11,27 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Extensions/KMOWallpaperExtension.appex/Contents/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			UP0H2FE6htlGMBjAK9qpeKIPV2PsTPG8tXf1BVg1lAQ=
+			</data>
+		</dict>
+		<key>Extensions/KMOWallpaperExtension.appex/Contents/MacOS/KMOWallpaperExtension</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BwM3Of6sHAvU00lJ3jvw4icuWJ8ZnexfZLPbPzmnb14=
+			</data>
+		</dict>
+		<key>Extensions/KMOWallpaperExtension.appex/Contents/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ZobeEKKKL+EbNsu4bcusyCfPxOoRa02r8YReWu5inps=
+			</data>
+		</dict>
 		<key>Resources/default_wallpaper.mp4</key>
 		<dict>
 			<key>hash2</key>

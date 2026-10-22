@@ -1,0 +1,251 @@
+import Foundation
+import AppKit
+import AVFoundation
+
+final class LockScreenManager {
+    static let shared = LockScreenManager()
+
+    let extensionBundleID = "com.kmo.KMO_LiveWallpaper.wallpaper-extension"
+
+    var containerDocsURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Containers/\(extensionBundleID)/Data/Documents", isDirectory: true)
+    }
+
+    var storeURLs: [URL] {
+        let storeDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store", isDirectory: true)
+        return [
+            storeDir.appendingPathComponent("Index.plist"),
+            storeDir.appendingPathComponent("Index2.plist")
+        ]
+    }
+
+    var backupDirURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store/KMO_Backup", isDirectory: true)
+    }
+
+    let savedLockScreenKey = "SavedLockScreenEnabledV1"
+    let savedScreenSaverKey = "SavedScreenSaverEnabledV1"
+
+    var lockScreenEnabled: Bool = false
+    var screenSaverEnabled: Bool = false
+
+    private init() {
+        lockScreenEnabled = UserDefaults.standard.bool(forKey: savedLockScreenKey)
+        screenSaverEnabled = UserDefaults.standard.bool(forKey: savedScreenSaverKey)
+    }
+
+    func ensureBackupsExist() {
+        let manager = FileManager.default
+        try? manager.createDirectory(at: backupDirURL, withIntermediateDirectories: true)
+        for url in storeURLs where manager.fileExists(atPath: url.path) {
+            let bak = backupDirURL.appendingPathComponent("\(url.lastPathComponent).bak")
+            if !manager.fileExists(atPath: bak.path) {
+                try? manager.copyItem(at: url, to: bak)
+            }
+        }
+    }
+
+    func registerExtension() {
+        let extURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Extensions/KMOWallpaperExtension.appex")
+        let extPath = extURL.path
+        if FileManager.default.fileExists(atPath: extPath) {
+            _ = run("/usr/bin/xattr", ["-cr", extPath])
+            _ = run("/usr/bin/pluginkit", ["-a", extPath])
+            _ = run("/usr/bin/pluginkit", ["-e", "use", "-i", extensionBundleID])
+        }
+    }
+
+    func stageVideo(url: URL) -> URL? {
+        let manager = FileManager.default
+        let videos = containerDocsURL.appendingPathComponent("videos", isDirectory: true)
+        try? manager.createDirectory(at: videos, withIntermediateDirectories: true)
+
+        let wallpaperID = "kmo-active-wallpaper"
+        let destDir = videos.appendingPathComponent(wallpaperID, isDirectory: true)
+        try? manager.createDirectory(at: destDir, withIntermediateDirectories: true)
+
+        let destVideo = destDir.appendingPathComponent("wallpaper.mov")
+
+        // Hard link or copy video
+        if manager.fileExists(atPath: destVideo.path) {
+            try? manager.removeItem(at: destVideo)
+        }
+        if (try? manager.linkItem(at: url, to: destVideo)) == nil {
+            try? manager.copyItem(at: url, to: destVideo)
+        }
+
+        // Generate thumbnail
+        let asset = AVURLAsset(url: url)
+        let gen = AVAssetImageGenerator(asset: asset)
+        gen.appliesPreferredTrackTransform = true
+        if let cgImg = try? gen.copyCGImage(at: .zero, actualTime: nil) {
+            let rep = NSBitmapImageRep(cgImage: cgImg)
+            if let data = rep.representation(using: .jpeg, properties: [:]) {
+                try? data.write(to: destDir.appendingPathComponent("thumbnail.jpg"))
+            }
+        }
+
+        // Write library.json
+        let libData = """
+        {"wallpapers":[{"id":"\(wallpaperID)","title":"\(url.deletingPathExtension().lastPathComponent)","videoFilename":"wallpaper.mov","thumbnailFilename":"thumbnail.jpg"}]}
+        """.data(using: .utf8)!
+        try? libData.write(to: containerDocsURL.appendingPathComponent("library.json"))
+
+        // Write kmo-prefs.json
+        let prefsData = """
+        {"alwaysPauseDesktop":true}
+        """.data(using: .utf8)!
+        try? prefsData.write(to: containerDocsURL.appendingPathComponent("kmo-prefs.json"))
+
+        // Darwin notifications
+        notifyExtension()
+
+        return destVideo
+    }
+
+    func notifyExtension() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(
+            center,
+            .init("com.kmo.KMO_LiveWallpaper.wallpaper.preferences-changed" as CFString),
+            nil,
+            nil,
+            true
+        )
+        CFNotificationCenterPostNotification(
+            center,
+            .init("com.kmo.KMO_LiveWallpaper.wallpaper.library-changed" as CFString),
+            nil,
+            nil,
+            true
+        )
+    }
+
+    func setLockScreen(enabled: Bool, videoURL: URL?) {
+        lockScreenEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: savedLockScreenKey)
+        ensureBackupsExist()
+
+        if enabled, let videoURL = videoURL {
+            registerExtension()
+            guard let staged = stageVideo(url: videoURL) else { return }
+            applyChoiceToStores(surface: .desktop, stagedVideoURL: staged)
+        } else {
+            restoreSurfaceInStores(surface: .desktop)
+        }
+        restartWallpaperAgent()
+    }
+
+    func setScreenSaver(enabled: Bool, videoURL: URL?) {
+        screenSaverEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: savedScreenSaverKey)
+        ensureBackupsExist()
+
+        if enabled, let videoURL = videoURL {
+            registerExtension()
+            guard let staged = stageVideo(url: videoURL) else { return }
+            applyChoiceToStores(surface: .screenSaver, stagedVideoURL: staged)
+        } else {
+            restoreSurfaceInStores(surface: .screenSaver)
+        }
+        restartWallpaperAgent()
+    }
+
+    func updateActiveVideo(url: URL) {
+        if lockScreenEnabled || screenSaverEnabled {
+            guard let staged = stageVideo(url: url) else { return }
+            if lockScreenEnabled {
+                applyChoiceToStores(surface: .desktop, stagedVideoURL: staged)
+            }
+            if screenSaverEnabled {
+                applyChoiceToStores(surface: .screenSaver, stagedVideoURL: staged)
+            }
+            restartWallpaperAgent()
+        }
+    }
+
+    private func applyChoiceToStores(surface: AppleWallpaperStore.Surface, stagedVideoURL: URL) {
+        let choice: [String: Any] = [
+            "Provider": extensionBundleID,
+            "Files": [["relative": stagedVideoURL.absoluteString]],
+            "Configuration": "kmo-active-wallpaper"
+        ]
+
+        let manager = FileManager.default
+        for url in storeURLs where manager.fileExists(atPath: url.path) {
+            guard let data = try? Data(contentsOf: url),
+                  let loaded = try? PropertyListSerialization.propertyList(from: data, format: nil)
+            else { continue }
+
+            var store: Any = loaded
+            AppleWallpaperStore.unlinkNodes(in: &store)
+            AppleWallpaperStore.applyChoiceCreatingNode(
+                choice,
+                to: &store,
+                targetKey: "all",
+                surface: surface,
+                desktopFallback: [:],
+                idleFallback: [:]
+            )
+
+            if let outData = try? PropertyListSerialization.data(fromPropertyList: store, format: .xml, options: 0) {
+                try? outData.write(to: url, options: .atomic)
+            }
+        }
+    }
+
+    private func restoreSurfaceInStores(surface: AppleWallpaperStore.Surface) {
+        let manager = FileManager.default
+        let roleKey = (surface == .screenSaver) ? "Idle" : "Desktop"
+
+        for url in storeURLs where manager.fileExists(atPath: url.path) {
+            let bakURL = backupDirURL.appendingPathComponent("\(url.lastPathComponent).bak")
+            guard let currentData = try? Data(contentsOf: url),
+                  var current = try? PropertyListSerialization.propertyList(from: currentData, format: nil) as? [String: Any]
+            else { continue }
+
+            let bakStore = (try? Data(contentsOf: bakURL)).flatMap {
+                try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: Any]
+            }
+
+            // Restore roleKey from backup if present
+            if let bakStore = bakStore {
+                if var sysDef = current["SystemDefault"] as? [String: Any],
+                   let bakSysDef = bakStore["SystemDefault"] as? [String: Any],
+                   let bakSurface = bakSysDef[roleKey] as? [String: Any] {
+                    sysDef[roleKey] = bakSurface
+                    current["SystemDefault"] = sysDef
+                }
+                if var allSpaces = current["AllSpacesAndDisplays"] as? [String: Any],
+                   let bakAll = bakStore["AllSpacesAndDisplays"] as? [String: Any],
+                   let bakSurface = bakAll[roleKey] as? [String: Any] {
+                    allSpaces[roleKey] = bakSurface
+                    current["AllSpacesAndDisplays"] = allSpaces
+                }
+            }
+
+            if let outData = try? PropertyListSerialization.data(fromPropertyList: current, format: .xml, options: 0) {
+                try? outData.write(to: url, options: .atomic)
+            }
+        }
+    }
+
+    func restartWallpaperAgent() {
+        _ = run("/usr/bin/killall", ["WallpaperAgent"])
+    }
+
+    @discardableResult
+    private func run(_ exec: String, _ args: [String]) -> Int32 {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: exec)
+        p.arguments = args
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
+        p.waitUntilExit()
+        return p.terminationStatus
+    }
+}

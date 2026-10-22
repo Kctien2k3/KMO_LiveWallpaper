@@ -35,12 +35,36 @@ cat > "$APP_DIR/Contents/Info.plist" << 'EOF'
 </plist>
 EOF
 
-swiftc -O -target arm64-apple-macos13.0 "$SCRIPT_DIR/main.swift" -o "/tmp/KMO_LiveWallpaper_arm64"
-swiftc -O -target x86_64-apple-macos13.0 "$SCRIPT_DIR/main.swift" -o "/tmp/KMO_LiveWallpaper_x86_64"
+# 1. Biên dịch ExtensionKit: KMOWallpaperExtension (Lock Screen & Screen Saver)
+echo "🧩 Đang biên dịch KMOWallpaperExtension (ExtensionKit Universal: Lock Screen & Screen Saver)..."
+EXT_DIR="$APP_DIR/Contents/Extensions/KMOWallpaperExtension.appex"
+mkdir -p "$EXT_DIR/Contents/MacOS"
+cp -f "$SCRIPT_DIR/extensions/KMOWallpaperExtension/Info.plist" "$EXT_DIR/Contents/Info.plist"
+
+swiftc -parse-as-library -O -target arm64-apple-macos14.4 \
+    -import-objc-header "$SCRIPT_DIR/extensions/KMOWallpaperExtension/WallpaperExtension-Bridging-Header.h" \
+    "$SCRIPT_DIR/extensions/KMOWallpaperExtension/"*.swift \
+    -o "/tmp/KMOWallpaperExtension_arm64"
+
+swiftc -parse-as-library -O -target x86_64-apple-macos14.4 \
+    -import-objc-header "$SCRIPT_DIR/extensions/KMOWallpaperExtension/WallpaperExtension-Bridging-Header.h" \
+    "$SCRIPT_DIR/extensions/KMOWallpaperExtension/"*.swift \
+    -o "/tmp/KMOWallpaperExtension_x86_64"
+
+lipo -create "/tmp/KMOWallpaperExtension_arm64" "/tmp/KMOWallpaperExtension_x86_64" -output "$EXT_DIR/Contents/MacOS/KMOWallpaperExtension"
+rm -f "/tmp/KMOWallpaperExtension_arm64" "/tmp/KMOWallpaperExtension_x86_64"
+
+xattr -cr "$EXT_DIR" 2>/dev/null || true
+codesign --force --sign - --entitlements "$SCRIPT_DIR/extensions/KMOWallpaperExtension/KMOWallpaperExtension.entitlements" "$EXT_DIR"
+
+# 2. Biên dịch Ứng dụng chính: KMO_LiveWallpaper
+echo "🚀 Đang biên dịch KMO_LiveWallpaper Host App (Universal Binary: Apple Silicon M1/M2/M3/M4 + Intel)..."
+swiftc -O -target arm64-apple-macos13.0 "$SCRIPT_DIR/main.swift" "$SCRIPT_DIR/sources/"*.swift -o "/tmp/KMO_LiveWallpaper_arm64"
+swiftc -O -target x86_64-apple-macos13.0 "$SCRIPT_DIR/main.swift" "$SCRIPT_DIR/sources/"*.swift -o "/tmp/KMO_LiveWallpaper_x86_64"
 lipo -create "/tmp/KMO_LiveWallpaper_arm64" "/tmp/KMO_LiveWallpaper_x86_64" -output "$APP_DIR/Contents/MacOS/KMO_LiveWallpaper"
 rm -f "/tmp/KMO_LiveWallpaper_arm64" "/tmp/KMO_LiveWallpaper_x86_64"
 
-# Dọn dẹp metadata & Ký mã (Ad-hoc codesign)
+# Dọn dẹp metadata & Ký mã toàn diện (Ad-hoc codesign)
 dot_clean "$APP_DIR" 2>/dev/null || true
 xattr -cr "$APP_DIR" 2>/dev/null || true
 codesign --force --deep --sign - "$APP_DIR"
@@ -67,6 +91,8 @@ cat << 'EOF' > "$SCRIPTS_DIR/postinstall"
 DEST="/Applications/KMO_LiveWallpaper.app"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 chmod -R 755 "$DEST" 2>/dev/null || true
+pluginkit -a "$DEST/Contents/Extensions/KMOWallpaperExtension.appex" 2>/dev/null || true
+pluginkit -e use -i com.kmo.KMO_LiveWallpaper.wallpaper-extension 2>/dev/null || true
 CONSOLE_USER=$(stat -f "%Su" /dev/console)
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
     sudo -u "$CONSOLE_USER" open "$DEST" 2>/dev/null || true
