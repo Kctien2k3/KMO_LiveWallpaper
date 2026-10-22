@@ -1111,6 +1111,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let comp = AVMutableVideoComposition()
         comp.renderSize = CGSize(width: renderW, height: renderH)
         comp.frameDuration = CMTime(value: 1, timescale: targetFPS)
+        comp.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+        comp.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
+        comp.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
 
         let instruction = AVMutableVideoCompositionInstruction()
         let dur = asset.duration.isValid && asset.duration > .zero ? asset.duration : CMTime(seconds: 3600, preferredTimescale: 600)
@@ -1224,10 +1227,6 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         cornerSensors.removeAll()
 
         let desktopLevel = Int(CGWindowLevelForKey(.desktopWindow))
-        let pbAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any]
-        ]
 
         for screen in NSScreen.screens {
             let window = NSWindow(
@@ -1243,8 +1242,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.ignoresMouseEvents = true
             window.hasShadow = false
             window.isReleasedWhenClosed = false
-            // Bảo vệ tấm nền mini-LED Liquid Retina XDR: Khóa dải màu chuẩn ổn định, không kích xung sáng HDR đột ngột
-            window.colorSpace = .sRGB
+            // Đồng bộ trọn vẹn dải màu rộng tự nhiên của màn hình (Display P3 / Color LCD)
+            window.colorSpace = screen.colorSpace ?? NSScreen.main?.colorSpace
 
             let vf = screen.visibleFrame
             let centerSensor = makeMicroSensor(
@@ -1268,7 +1267,6 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             containerView.layerContentsRedrawPolicy = .never
 
             let playerLayer = AVPlayerLayer(player: player)
-            playerLayer.pixelBufferAttributes = pbAttrs
             if #available(macOS 14.0, *) {
                 playerLayer.ToneMapMode_avoidIfNeeded()
             }
@@ -1369,6 +1367,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             for (i, screen) in screens.enumerated() where i < desktopWindows.count {
                 let win = desktopWindows[i]
                 win.setFrame(screen.frame, display: true)
+                win.colorSpace = screen.colorSpace ?? NSScreen.main?.colorSpace
                 win.contentView?.frame = NSRect(origin: .zero, size: screen.frame.size)
                 let vf = screen.visibleFrame
                 if i < centerSensors.count {
