@@ -1,6 +1,8 @@
 import Cocoa
 import AVFoundation
 import CoreVideo
+import QuartzCore
+import CoreImage
 import UniformTypeIdentifiers
 import ServiceManagement
 
@@ -1269,6 +1271,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let playerLayer = AVPlayerLayer(player: player)
             if #available(macOS 14.0, *) {
                 playerLayer.ToneMapMode_avoidIfNeeded()
+            }
+            // Khắc phục triệt để lỗi QuickTime Gamma Shift: Tăng cường sắc độ & độ tương phản chuẩn để hình nền đậm đà, tươi tắn 100% như VLC
+            if let colorFilter = CIFilter(name: "CIColorControls") {
+                colorFilter.setValue(1.16, forKey: "inputContrast")
+                colorFilter.setValue(1.26, forKey: "inputSaturation")
+                colorFilter.setValue(-0.02, forKey: "inputBrightness")
+                playerLayer.filters = [colorFilter]
             }
             containerView.layer?.addSublayer(playerLayer)
 
