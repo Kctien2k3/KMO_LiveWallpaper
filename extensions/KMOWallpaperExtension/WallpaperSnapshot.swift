@@ -70,6 +70,10 @@ enum WallpaperSnapshot {
                 | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { return nil }
 
+        // Clear background to solid black first so letterbox/offset margins are pure black
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
         // Framed and zoomed to match what the wallpaper layers do
         let prefs = ExtensionPreferences.shared
         let imageWidth = CGFloat(image.width)

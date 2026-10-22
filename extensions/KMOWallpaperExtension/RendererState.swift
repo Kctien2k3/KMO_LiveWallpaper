@@ -184,15 +184,20 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// drawn again, which is why re-asserting a black desktop could not fix
     /// one. `repaintable` hands over a separate object each time. It shares
     /// the decoded bitmap, so it costs a pointer rather than a decode.
+    private var currentStill: CGImage?
+
     func setStill(_ image: CGImage?) {
         guard drawsStill else { return }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        rootLayer.contents = Self.repaintable(image ?? fallback)
-        rootLayer.isOpaque = rootLayer.contents != nil
-        CATransaction.commit()
-        CATransaction.flush()
-        setShowingStill(wantsStill)
+        currentStill = image
+        if wantsStill {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            rootLayer.contents = Self.repaintable(image ?? fallback)
+            rootLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
+            rootLayer.isOpaque = true
+            CATransaction.commit()
+            CATransaction.flush()
+        }
     }
 
     /// The same surface playing the next step of a playlist or automation.
@@ -236,7 +241,22 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// wallpaper and a hidden video over an empty surface is black.
     func setShowingStill(_ showing: Bool) {
         wantsStill = showing
-        renderer.setHidden(showing && rootLayer.contents != nil)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if showing {
+            rootLayer.contents = Self.repaintable(currentStill ?? fallback)
+            rootLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
+            rootLayer.isOpaque = true
+            renderer.setHidden(true)
+        } else {
+            // Khi phát video: Xoá sạch hoàn toàn rootLayer.contents về nil và tô đen nền.
+            // Triệt tiêu 100% hiện tượng ảnh tĩnh bị chồng lấn dưới video.
+            rootLayer.contents = nil
+            rootLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
+            rootLayer.isOpaque = true
+            renderer.setHidden(false)
+        }
+        CATransaction.commit()
     }
 
     /// Whether this surface was last told to show its picture rather than its

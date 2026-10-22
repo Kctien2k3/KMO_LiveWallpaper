@@ -55,6 +55,7 @@ final class VideoRenderer: @unchecked Sendable {
         }
 
         let displayLayer = AVSampleBufferDisplayLayer()
+        displayLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
         let prefs = ExtensionPreferences.shared
         switch prefs.gravityMode {
         case 1: displayLayer.videoGravity = .resizeAspect
@@ -203,6 +204,7 @@ final class VideoRenderer: @unchecked Sendable {
             guard let self, isRunning else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
+            self.displayLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
             switch gravityMode {
             case 1:
                 self.displayLayer.videoGravity = .resizeAspect

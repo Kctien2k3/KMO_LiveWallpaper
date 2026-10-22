@@ -245,13 +245,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         rootLayer.frame = CGRect(origin: .zero, size: info.destinationSize)
         rootLayer.contentsScale = info.scaleFactor
         rootLayer.contentsGravity = .resizeAspectFill
-        // Underneath the video, on the context's own layer, and set before the
-        // context is handed over, so the first thing macOS composites already
-        // carries the desktop's picture. It used to be a sublayer added after
-        // the handover: one more thing that had to arrive before the desktop
-        // was anything at all.
-        rootLayer.contents = desktopStill
-        rootLayer.isOpaque = desktopStill != nil
+        rootLayer.backgroundColor = CGColor(gray: 0, alpha: 1)
+        rootLayer.masksToBounds = true
+        rootLayer.contents = nil
+        rootLayer.isOpaque = true
         context.layer = rootLayer
         CATransaction.flush()
 

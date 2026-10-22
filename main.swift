@@ -1702,9 +1702,11 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let containerView = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
             containerView.wantsLayer = true
             containerView.layer?.backgroundColor = NSColor.black.cgColor
+            containerView.layer?.masksToBounds = true
             containerView.layerContentsRedrawPolicy = .never
 
             let playerLayer = AVPlayerLayer(player: player)
+            playerLayer.backgroundColor = NSColor.black.cgColor
             if #available(macOS 14.0, *) {
                 playerLayer.ToneMapMode_avoidIfNeeded()
             }
@@ -1784,6 +1786,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             let bounds = win.contentView?.bounds ?? win.frame
 
+            layer.backgroundColor = NSColor.black.cgColor
             switch gravityMode {
             case 1:
                 layer.videoGravity = .resizeAspect
