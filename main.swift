@@ -70,6 +70,14 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var launchAtLoginSwitch: NSSwitch?
     var playPauseBtn: NSButton?
 
+    // Bộ lọc màu sắc (Khắc phục QuickTime Gamma Shift, tinh chỉnh khớp VLC tự nhiên)
+    var contrastValue: Float = 1.05   // 0.80 - 1.30, mặc định 1.05 (chuẩn tự nhiên khớp VLC)
+    var saturationValue: Float = 1.05 // 0.50 - 1.50, mặc định 1.05 (chuẩn tự nhiên khớp VLC)
+    var contrastSlider: NSSlider?
+    var contrastValueLabel: NSTextField?
+    var saturationSlider: NSSlider?
+    var saturationValueLabel: NSTextField?
+
     // Thanh Menu Bar
     var menuAutoPause90Item: NSMenuItem!
     var menuCeilingItem: NSMenuItem!
@@ -81,6 +89,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let savedZoomKey = "SavedZoomScale"
     let savedOffsetXKey = "SavedOffsetX"
     let savedOffsetYKey = "SavedOffsetY"
+    let savedContrastKey = "SavedContrastValueV1"
+    let savedSaturationKey = "SavedSaturationValueV1"
     let savedResKey = "SavedResModeV5"
     let savedFPSKey = "SavedFPSModeV1"
     let savedAutoPause90Key = "SavedAutoPause90EnabledV1"
@@ -161,6 +171,18 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if zoomScale < 0.2 { zoomScale = 1.0 }
             offsetX = CGFloat(UserDefaults.standard.double(forKey: savedOffsetXKey))
             offsetY = CGFloat(UserDefaults.standard.double(forKey: savedOffsetYKey))
+        }
+        if UserDefaults.standard.object(forKey: savedContrastKey) != nil {
+            let val = Float(UserDefaults.standard.double(forKey: savedContrastKey))
+            contrastValue = max(0.80, min(1.30, val))
+        } else {
+            contrastValue = 1.05
+        }
+        if UserDefaults.standard.object(forKey: savedSaturationKey) != nil {
+            let val = Float(UserDefaults.standard.double(forKey: savedSaturationKey))
+            saturationValue = max(0.50, min(1.50, val))
+        } else {
+            saturationValue = 1.05
         }
         if UserDefaults.standard.object(forKey: savedResKey) != nil {
             resolutionMode = max(0, min(2, UserDefaults.standard.integer(forKey: savedResKey)))
@@ -683,7 +705,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildControlWindowIfNeeded() {
         guard controlWindow == nil else { return }
-        let rect = NSRect(x: 0, y: 0, width: 476, height: 614)
+        let rect = NSRect(x: 0, y: 0, width: 476, height: 698)
         let win = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -707,7 +729,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let cardW: CGFloat = rect.width - margin * 2 // 436
 
         // 1. CARD 1: Video & Tuỳ chọn phát (Height: 126)
-        let card1 = makeCard(frame: NSRect(x: margin, y: 442, width: cardW, height: 126))
+        let card1 = makeCard(frame: NSRect(x: margin, y: 526, width: cardW, height: 126))
         visualEffect.addSubview(card1)
 
         addRowIcon("film", to: card1, y: 93)
@@ -744,66 +766,94 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         fpsSegment?.frame = NSRect(x: 196, y: 10, width: 228, height: 24)
         card1.addSubview(fpsSegment!)
 
-        // 2. CARD 2: Khung hình & Bố cục (Height: 172)
-        let card2 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 172))
+        // 2. CARD 2: Khung hình & Màu sắc (Height: 256)
+        let card2 = makeCard(frame: NSRect(x: margin, y: 256, width: cardW, height: 256))
         visualEffect.addSubview(card2)
 
-        addRowIcon("aspectratio", to: card2, y: 139)
-        card2.addSubview(makeLabel("Khung hình", frame: NSRect(x: 40, y: 138, width: 84, height: 20), bold: false, size: 13))
+        addRowIcon("aspectratio", to: card2, y: 223)
+        card2.addSubview(makeLabel("Khung hình", frame: NSRect(x: 40, y: 222, width: 84, height: 20), bold: false, size: 13))
 
         let resetBtn = NSButton(title: "Đặt lại", target: self, action: #selector(resetTransform))
         resetBtn.bezelStyle = .rounded
         resetBtn.controlSize = .small
         resetBtn.font = NSFont.systemFont(ofSize: 11)
-        resetBtn.frame = NSRect(x: 128, y: 136, width: 60, height: 24)
+        resetBtn.frame = NSRect(x: 128, y: 220, width: 60, height: 24)
         card2.addSubview(resetBtn)
 
         gravitySegment = NSSegmentedControl(labels: ["Lấp đầy", "Vừa khít", "Kéo giãn"], trackingMode: .selectOne, target: self, action: #selector(displaySettingsChanged))
         gravitySegment?.selectedSegment = gravityMode
-        gravitySegment?.frame = NSRect(x: 196, y: 136, width: 228, height: 24)
+        gravitySegment?.frame = NSRect(x: 196, y: 220, width: 228, height: 24)
         card2.addSubview(gravitySegment!)
 
-        addRowDivider(to: card2, y: 128)
+        addRowDivider(to: card2, y: 212)
 
-        addRowIcon("plus.magnifyingglass", to: card2, y: 97)
-        card2.addSubview(makeLabel("Thu phóng", frame: NSRect(x: 40, y: 96, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("plus.magnifyingglass", to: card2, y: 181)
+        card2.addSubview(makeLabel("Thu phóng", frame: NSRect(x: 40, y: 180, width: 95, height: 20), bold: false, size: 13))
 
         zoomSlider = NSSlider(value: Double(zoomScale * 100), minValue: 50, maxValue: 200, target: self, action: #selector(displaySettingsChanged))
-        zoomSlider?.frame = NSRect(x: 196, y: 96, width: 176, height: 20)
+        zoomSlider?.frame = NSRect(x: 196, y: 180, width: 176, height: 20)
         zoomSlider?.isContinuous = true
         card2.addSubview(zoomSlider!)
 
-        zoomValueLabel = makeLabel("\(Int(round(zoomScale * 100)))%", frame: NSRect(x: 376, y: 96, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        zoomValueLabel = makeLabel("\(Int(round(zoomScale * 100)))%", frame: NSRect(x: 376, y: 180, width: 46, height: 20), bold: false, size: 12, secondary: true)
         zoomValueLabel?.alignment = .right
         card2.addSubview(zoomValueLabel!)
 
-        addRowDivider(to: card2, y: 86)
+        addRowDivider(to: card2, y: 170)
 
-        addRowIcon("arrow.left.and.right", to: card2, y: 55)
-        card2.addSubview(makeLabel("Dịch ngang", frame: NSRect(x: 40, y: 54, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("arrow.left.and.right", to: card2, y: 139)
+        card2.addSubview(makeLabel("Dịch ngang", frame: NSRect(x: 40, y: 138, width: 95, height: 20), bold: false, size: 13))
 
         offsetXSlider = NSSlider(value: Double(offsetX), minValue: -600, maxValue: 600, target: self, action: #selector(displaySettingsChanged))
-        offsetXSlider?.frame = NSRect(x: 196, y: 54, width: 176, height: 20)
+        offsetXSlider?.frame = NSRect(x: 196, y: 138, width: 176, height: 20)
         offsetXSlider?.isContinuous = true
         card2.addSubview(offsetXSlider!)
 
-        offsetXValueLabel = makeLabel("\(Int(round(offsetX)))", frame: NSRect(x: 376, y: 54, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        offsetXValueLabel = makeLabel("\(Int(round(offsetX)))", frame: NSRect(x: 376, y: 138, width: 46, height: 20), bold: false, size: 12, secondary: true)
         offsetXValueLabel?.alignment = .right
         card2.addSubview(offsetXValueLabel!)
 
-        addRowDivider(to: card2, y: 44)
+        addRowDivider(to: card2, y: 128)
 
-        addRowIcon("arrow.up.and.down", to: card2, y: 13)
-        card2.addSubview(makeLabel("Dịch dọc", frame: NSRect(x: 40, y: 12, width: 95, height: 20), bold: false, size: 13))
+        addRowIcon("arrow.up.and.down", to: card2, y: 97)
+        card2.addSubview(makeLabel("Dịch dọc", frame: NSRect(x: 40, y: 96, width: 95, height: 20), bold: false, size: 13))
 
         offsetYSlider = NSSlider(value: Double(offsetY), minValue: -500, maxValue: 500, target: self, action: #selector(displaySettingsChanged))
-        offsetYSlider?.frame = NSRect(x: 196, y: 12, width: 176, height: 20)
+        offsetYSlider?.frame = NSRect(x: 196, y: 96, width: 176, height: 20)
         offsetYSlider?.isContinuous = true
         card2.addSubview(offsetYSlider!)
 
-        offsetYValueLabel = makeLabel("\(Int(round(offsetY)))", frame: NSRect(x: 376, y: 12, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        offsetYValueLabel = makeLabel("\(Int(round(offsetY)))", frame: NSRect(x: 376, y: 96, width: 46, height: 20), bold: false, size: 12, secondary: true)
         offsetYValueLabel?.alignment = .right
         card2.addSubview(offsetYValueLabel!)
+
+        addRowDivider(to: card2, y: 86)
+
+        addRowIcon("circle.righthalf.filled", to: card2, y: 55)
+        card2.addSubview(makeLabel("Tương phản", frame: NSRect(x: 40, y: 54, width: 95, height: 20), bold: false, size: 13))
+
+        contrastSlider = NSSlider(value: Double(contrastValue * 100), minValue: 80, maxValue: 130, target: self, action: #selector(colorSettingsChanged))
+        contrastSlider?.frame = NSRect(x: 196, y: 54, width: 176, height: 20)
+        contrastSlider?.isContinuous = true
+        card2.addSubview(contrastSlider!)
+
+        contrastValueLabel = makeLabel("\(Int(round(contrastValue * 100)))%", frame: NSRect(x: 376, y: 54, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        contrastValueLabel?.alignment = .right
+        card2.addSubview(contrastValueLabel!)
+
+        addRowDivider(to: card2, y: 44)
+
+        addRowIcon("paintpalette", to: card2, y: 13)
+        card2.addSubview(makeLabel("Độ rực rỡ", frame: NSRect(x: 40, y: 12, width: 95, height: 20), bold: false, size: 13))
+
+        saturationSlider = NSSlider(value: Double(saturationValue * 100), minValue: 50, maxValue: 150, target: self, action: #selector(colorSettingsChanged))
+        saturationSlider?.frame = NSRect(x: 196, y: 12, width: 176, height: 20)
+        saturationSlider?.isContinuous = true
+        card2.addSubview(saturationSlider!)
+
+        saturationValueLabel = makeLabel("\(Int(round(saturationValue * 100)))%", frame: NSRect(x: 376, y: 12, width: 46, height: 20), bold: false, size: 12, secondary: true)
+        saturationValueLabel?.alignment = .right
+        card2.addSubview(saturationValueLabel!)
 
         // 3. CARD 3: Tiết kiệm năng lượng, Mức trần & Tự khởi động (Height: 154)
         let card3 = makeCard(frame: NSRect(x: margin, y: 88, width: cardW, height: 154))
@@ -928,6 +978,10 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             updateResolutionSegments(for: targetURL)
         }
         fpsSegment?.selectedSegment = fpsMode
+        contrastSlider?.doubleValue = Double(contrastValue * 100.0)
+        contrastValueLabel?.stringValue = "\(Int(round(contrastValue * 100.0)))%"
+        saturationSlider?.doubleValue = Double(saturationValue * 100.0)
+        saturationValueLabel?.stringValue = "\(Int(round(saturationValue * 100.0)))%"
         NSApp.setActivationPolicy(.regular)
         controlWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -951,6 +1005,10 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         offsetXValueLabel = nil
         offsetYSlider = nil
         offsetYValueLabel = nil
+        contrastSlider = nil
+        contrastValueLabel = nil
+        saturationSlider = nil
+        saturationValueLabel = nil
         ceilingSwitch = nil
         launchAtLoginSwitch = nil
         muteSwitch = nil
@@ -1058,19 +1116,62 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyLayerTransformAndGravity()
     }
 
+    func applyColorFilterToAllPlayers() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for layer in playerLayers {
+            if let colorFilter = CIFilter(name: "CIColorControls") {
+                colorFilter.setValue(contrastValue, forKey: "inputContrast")
+                colorFilter.setValue(saturationValue, forKey: "inputSaturation")
+                colorFilter.setValue(0.0, forKey: "inputBrightness")
+                layer.filters = [colorFilter]
+            }
+        }
+        CATransaction.commit()
+    }
+
+    @objc func colorSettingsChanged() {
+        if let cSlider = contrastSlider {
+            contrastValue = Float(cSlider.doubleValue) / 100.0
+            contrastValueLabel?.stringValue = "\(Int(round(cSlider.doubleValue)))%"
+        }
+        if let sSlider = saturationSlider {
+            saturationValue = Float(sSlider.doubleValue) / 100.0
+            saturationValueLabel?.stringValue = "\(Int(round(sSlider.doubleValue)))%"
+        }
+
+        UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
+        UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
+
+        applyColorFilterToAllPlayers()
+    }
+
     @objc func resetTransform() {
         gravityMode = 0
         zoomScale = 1.0
         offsetX = 0.0
         offsetY = 0.0
+        contrastValue = 1.05
+        saturationValue = 1.05
+
         gravitySegment?.selectedSegment = 0
         zoomSlider?.doubleValue = 100
         offsetXSlider?.doubleValue = 0
         offsetYSlider?.doubleValue = 0
+        contrastSlider?.doubleValue = 105
+        saturationSlider?.doubleValue = 105
+
         zoomValueLabel?.stringValue = "100%"
         offsetXValueLabel?.stringValue = "0"
         offsetYValueLabel?.stringValue = "0"
+        contrastValueLabel?.stringValue = "105%"
+        saturationValueLabel?.stringValue = "105%"
+
+        UserDefaults.standard.set(Double(contrastValue), forKey: savedContrastKey)
+        UserDefaults.standard.set(Double(saturationValue), forKey: savedSaturationKey)
+
         displaySettingsChanged()
+        applyColorFilterToAllPlayers()
     }
 
     func buildVideoComposition(for asset: AVAsset, mode: Int, fpsMode: Int) -> AVVideoComposition? {
@@ -1272,11 +1373,11 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if #available(macOS 14.0, *) {
                 playerLayer.ToneMapMode_avoidIfNeeded()
             }
-            // Khắc phục triệt để lỗi QuickTime Gamma Shift: Tăng cường sắc độ & độ tương phản chuẩn để hình nền đậm đà, tươi tắn 100% như VLC
+            // Khắc phục triệt để lỗi QuickTime Gamma Shift: Bộ lọc màu Metal shader thời gian thực (khớp chuẩn VLC tự nhiên)
             if let colorFilter = CIFilter(name: "CIColorControls") {
-                colorFilter.setValue(1.16, forKey: "inputContrast")
-                colorFilter.setValue(1.26, forKey: "inputSaturation")
-                colorFilter.setValue(-0.02, forKey: "inputBrightness")
+                colorFilter.setValue(contrastValue, forKey: "inputContrast")
+                colorFilter.setValue(saturationValue, forKey: "inputSaturation")
+                colorFilter.setValue(0.0, forKey: "inputBrightness")
                 playerLayer.filters = [colorFilter]
             }
             containerView.layer?.addSublayer(playerLayer)
