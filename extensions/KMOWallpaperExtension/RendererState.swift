@@ -269,11 +269,14 @@ final class ActiveWallpaper: @unchecked Sendable {
         CATransaction.setDisableActions(true)
         rootLayer.masksToBounds = true
 
-        if let colorFilter = CIFilter(name: "CIColorControls") {
+        let needsFilter = abs(prefs.contrast - 1.0) > 0.01 || abs(prefs.saturation - 1.0) > 0.01
+        if needsFilter, let colorFilter = CIFilter(name: "CIColorControls") {
             colorFilter.setValue(prefs.contrast, forKey: "inputContrast")
             colorFilter.setValue(prefs.saturation, forKey: "inputSaturation")
             colorFilter.setValue(0.0, forKey: "inputBrightness")
             rootLayer.filters = [colorFilter]
+        } else {
+            rootLayer.filters = nil
         }
 
         renderer.applyLayout(
@@ -459,11 +462,19 @@ final class RendererState: @unchecked Sendable {
     ///
     /// The one exception is macOS saying this surface is suspended, which
     /// means it is not being shown after all.
-    func shouldScreenSaverPlay() -> Bool {
+    func shouldScreenSaverPlay(
+        mode requestedMode: String? = nil,
+        activity requestedActivity: String? = nil
+    ) -> Bool {
         lock.lock()
-        let activity = activityState
+        let mode = requestedMode ?? presentationMode
+        let activity = requestedActivity ?? activityState
         lock.unlock()
-        return !activity.contains("suspended")
+        if activity.contains("suspended") { return false }
+        // CRITICAL PERFORMANCE FIX: Screen saver surface must ONLY play when presentationMode is "idle"!
+        // Previously, returning true on "default" mode forced an offscreen screen saver layer to decode 60 FPS
+        // continuously in the background while on the desktop, driving WindowServer to 52% CPU and heating the Mac.
+        return mode == "idle"
     }
 
     func applyCurrentPlaybackPolicy() {

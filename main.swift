@@ -72,9 +72,9 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var lockScreenSwitch: NSSwitch?
     var screenSaverSwitch: NSSwitch?
 
-    // Bộ lọc màu sắc (Khắc phục QuickTime Gamma Shift, tinh chỉnh khớp VLC tự nhiên)
-    var contrastValue: Float = 1.05   // 0.80 - 1.30, mặc định 1.05 (chuẩn tự nhiên khớp VLC)
-    var saturationValue: Float = 1.05 // 0.50 - 1.50, mặc định 1.05 (chuẩn tự nhiên khớp VLC)
+    // Bộ lọc màu sắc (Tùy chỉnh tương phản & bão hòa, tự động tối ưu zero-copy scanout khi ở 100%)
+    var contrastValue: Float = 1.00   // 0.80 - 1.30, mặc định 1.00 (100% nguyên bản, zero GPU shader overhead)
+    var saturationValue: Float = 1.00 // 0.50 - 1.50, mặc định 1.00 (100% nguyên bản)
     var contrastSlider: NSSlider?
     var contrastValueLabel: NSTextField?
     var saturationSlider: NSSlider?
@@ -86,8 +86,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var lockZoomScale: CGFloat = 1.0
     var lockOffsetX: CGFloat = 0.0
     var lockOffsetY: CGFloat = 0.0
-    var lockContrastValue: Float = 1.05
-    var lockSaturationValue: Float = 1.05
+    var lockContrastValue: Float = 1.00
+    var lockSaturationValue: Float = 1.00
     var currentScopeIndex: Int = 0 // 0: Màn hình chính, 1: Màn hình khóa & Chờ
 
     var scopeSegment: NSSegmentedControl?
@@ -200,13 +200,13 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let val = Float(UserDefaults.standard.double(forKey: savedContrastKey))
             contrastValue = max(0.80, min(1.30, val))
         } else {
-            contrastValue = 1.05
+            contrastValue = 1.00
         }
         if UserDefaults.standard.object(forKey: savedSaturationKey) != nil {
             let val = Float(UserDefaults.standard.double(forKey: savedSaturationKey))
             saturationValue = max(0.50, min(1.50, val))
         } else {
-            saturationValue = 1.05
+            saturationValue = 1.00
         }
         if UserDefaults.standard.object(forKey: savedResKey) != nil {
             resolutionMode = max(0, min(2, UserDefaults.standard.integer(forKey: savedResKey)))
@@ -1395,20 +1395,23 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applyColorFilterToAllPlayers() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        let needsFilter = abs(contrastValue - 1.0) > 0.01 || abs(saturationValue - 1.0) > 0.01
         for layer in playerLayers {
-            if let colorFilter = CIFilter(name: "CIColorControls") {
+            if needsFilter, let colorFilter = CIFilter(name: "CIColorControls") {
                 colorFilter.setValue(contrastValue, forKey: "inputContrast")
                 colorFilter.setValue(saturationValue, forKey: "inputSaturation")
                 colorFilter.setValue(0.0, forKey: "inputBrightness")
                 layer.filters = [colorFilter]
+            } else {
+                layer.filters = nil
             }
         }
         CATransaction.commit()
     }
 
     @objc func colorSettingsChanged() {
-        let newContrast = Float((contrastSlider?.doubleValue ?? 105.0) / 100.0)
-        let newSaturation = Float((saturationSlider?.doubleValue ?? 105.0) / 100.0)
+        let newContrast = Float((contrastSlider?.doubleValue ?? 100.0) / 100.0)
+        let newSaturation = Float((saturationSlider?.doubleValue ?? 100.0) / 100.0)
 
         if let cSlider = contrastSlider {
             contrastValueLabel?.stringValue = "\(Int(round(cSlider.doubleValue)))%"
@@ -1455,8 +1458,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             zoomScale = 1.0
             offsetX = 0.0
             offsetY = 0.0
-            contrastValue = 1.05
-            saturationValue = 1.05
+            contrastValue = 1.00
+            saturationValue = 1.00
 
             UserDefaults.standard.set(gravityMode, forKey: savedGravityKey)
             UserDefaults.standard.set(Double(zoomScale), forKey: savedZoomKey)
@@ -1470,8 +1473,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 lockZoomScale = 1.0
                 lockOffsetX = 0.0
                 lockOffsetY = 0.0
-                lockContrastValue = 1.05
-                lockSaturationValue = 1.05
+                lockContrastValue = 1.00
+                lockSaturationValue = 1.00
 
                 UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
                 UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
@@ -1494,8 +1497,8 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             lockZoomScale = 1.0
             lockOffsetX = 0.0
             lockOffsetY = 0.0
-            lockContrastValue = 1.05
-            lockSaturationValue = 1.05
+            lockContrastValue = 1.00
+            lockSaturationValue = 1.00
 
             UserDefaults.standard.set(lockGravityMode, forKey: savedLockGravityKey)
             UserDefaults.standard.set(Double(lockZoomScale), forKey: savedLockZoomKey)
@@ -1710,12 +1713,16 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if #available(macOS 14.0, *) {
                 playerLayer.ToneMapMode_avoidIfNeeded()
             }
-            // Khắc phục triệt để lỗi QuickTime Gamma Shift: Bộ lọc màu Metal shader thời gian thực (khớp chuẩn VLC tự nhiên)
-            if let colorFilter = CIFilter(name: "CIColorControls") {
+            // Tối ưu hoá phần cứng Zero-Copy: Chỉ áp dụng bộ lọc Metal khi người dùng thực sự thay đổi màu sắc.
+            // Khi ở 100% (mặc định), playerLayer.filters = nil giúp WindowServer kích hoạt Direct Hardware Scanout, triệt tiêu 50% CPU WindowServer!
+            let needsFilter = abs(contrastValue - 1.0) > 0.01 || abs(saturationValue - 1.0) > 0.01
+            if needsFilter, let colorFilter = CIFilter(name: "CIColorControls") {
                 colorFilter.setValue(contrastValue, forKey: "inputContrast")
                 colorFilter.setValue(saturationValue, forKey: "inputSaturation")
                 colorFilter.setValue(0.0, forKey: "inputBrightness")
                 playerLayer.filters = [colorFilter]
+            } else {
+                playerLayer.filters = nil
             }
             containerView.layer?.addSublayer(playerLayer)
 
@@ -1938,7 +1945,7 @@ class WallpaperAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     player.rate = 1.0
                 }
             } else {
-                if userPaused || pausedByCeiling || pausedBySystemHeavyLoad {
+                if userPaused || pausedByCeiling || pausedBySystemHeavyLoad || proAppActive {
                     if player.rate != 0 {
                         player.pause()
                         malloc_zone_pressure_relief(nil, 0)

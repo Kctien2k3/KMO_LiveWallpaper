@@ -168,6 +168,7 @@ final class VideoRenderer: @unchecked Sendable {
             guard let self, isRunning, !isPaused else { return }
             isPaused = true
             CMTimebaseSetRate(timebase, rate: 0)
+            renderer.stopRequestingMediaData()
         }
     }
 
@@ -176,6 +177,7 @@ final class VideoRenderer: @unchecked Sendable {
             guard let self, isRunning, isPaused else { return }
             isPaused = false
             CMTimebaseSetRate(timebase, rate: 1)
+            feedCurrentReader()
         }
     }
 
@@ -348,7 +350,7 @@ final class VideoRenderer: @unchecked Sendable {
         // sitting there. The video renderer outlives this object, so a weak
         // handle to it is still something to switch off.
         renderer.requestMediaDataWhenReady(on: queue) { [weak self, weak armed = self.renderer] in
-            guard let self, isRunning else {
+            guard let self, isRunning, !isPaused else {
                 armed?.stopRequestingMediaData()
                 return
             }

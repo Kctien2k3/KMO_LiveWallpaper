@@ -22,8 +22,8 @@ final class ExtensionPreferences: @unchecked Sendable {
     private var currentZoomScale: CGFloat = 1.0
     private var currentOffsetX: CGFloat = 0.0
     private var currentOffsetY: CGFloat = 0.0
-    private var currentContrast: Float = 1.05
-    private var currentSaturation: Float = 1.05
+    private var currentContrast: Float = 1.0
+    private var currentSaturation: Float = 1.0
 
     private static var url: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -115,8 +115,8 @@ final class ExtensionPreferences: @unchecked Sendable {
         currentZoomScale = CGFloat(contents.zoomScale ?? 1.0)
         currentOffsetX = CGFloat(contents.offsetX ?? 0.0)
         currentOffsetY = CGFloat(contents.offsetY ?? 0.0)
-        currentContrast = Float(contents.contrast ?? 1.05)
-        currentSaturation = Float(contents.saturation ?? 1.05)
+        currentContrast = Float(contents.contrast ?? 1.0)
+        currentSaturation = Float(contents.saturation ?? 1.0)
         lock.unlock()
     }
 }

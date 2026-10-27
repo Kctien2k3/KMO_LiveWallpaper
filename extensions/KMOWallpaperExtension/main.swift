@@ -296,7 +296,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 )
             }
             let shouldPlay = info.isScreenSaver
-                ? RendererState.shared.shouldScreenSaverPlay()
+                ? RendererState.shared.shouldScreenSaverPlay(
+                    mode: info.presentationMode,
+                    activity: info.activityState
+                )
                 : RendererState.shared.shouldPlayNow(
                     mode: info.presentationMode,
                     activity: info.activityState,
