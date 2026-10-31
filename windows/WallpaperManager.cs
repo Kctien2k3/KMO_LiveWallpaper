@@ -16,6 +16,18 @@ namespace KMO_LiveWallpaper
         public double ZoomScale { get; set; } = 1.0;
         public double OffsetX { get; set; } = 0.0;
         public double OffsetY { get; set; } = 0.0;
+        public double ContrastValue { get; set; } = 1.0; // 0.80 - 1.30, mặc định 1.0 (100% nguyên bản)
+        public double SaturationValue { get; set; } = 1.0; // 0.50 - 1.50, mặc định 1.0 (100% nguyên bản)
+        public int FpsMode { get; set; } = 1; // 0: 30 FPS, 1: 60 FPS, 2: 120 FPS
+        public bool LockScreenEnabled { get; set; } = true;
+        public bool ScreenSaverEnabled { get; set; } = true;
+        public bool SyncLockScreenSettings { get; set; } = true;
+        public int LockGravityMode { get; set; } = 0;
+        public double LockZoomScale { get; set; } = 1.0;
+        public double LockOffsetX { get; set; } = 0.0;
+        public double LockOffsetY { get; set; } = 0.0;
+        public double LockContrastValue { get; set; } = 1.0;
+        public double LockSaturationValue { get; set; } = 1.0;
         public bool AutoPause90Enabled { get; set; } = true;
         public bool CeilingEnabled { get; set; } = true;
         public bool IsMuted { get; set; } = true;
@@ -193,8 +205,10 @@ namespace KMO_LiveWallpaper
             {
                 var win = new WallpaperWindow(screen);
                 win.SetMuted(_config.IsMuted);
+                win.SetFpsMode(_config.FpsMode);
                 win.SetStretchMode(_config.StretchMode);
                 win.SetResolutionMode(_config.ResolutionMode);
+                win.SetColorControls(_config.ContrastValue, _config.SaturationValue);
                 win.ApplyTransform(_config.ZoomScale, _config.OffsetX, _config.OffsetY);
                 win.VideoOpened += (w, h, dur) =>
                 {
@@ -207,6 +221,9 @@ namespace KMO_LiveWallpaper
                 win.LoadVideo(_config.VideoPath);
                 _wallpaperWindows.Add(win);
             }
+
+            // Đăng ký tệp Screen Saver .scr
+            LockScreenManager.RegisterScreenSaverExecutable();
 
             UpdatePlaybackState();
         }
@@ -259,12 +276,60 @@ namespace KMO_LiveWallpaper
             }
         }
 
+        public void SetFpsMode(int mode)
+        {
+            _config.FpsMode = Math.Max(0, Math.Min(2, mode));
+            SaveConfig();
+            foreach (var win in _wallpaperWindows)
+            {
+                win.SetFpsMode(_config.FpsMode);
+            }
+            StateChanged?.Invoke();
+        }
+
+        public void SetColorControls(double contrast, double saturation)
+        {
+            _config.ContrastValue = Math.Max(0.80, Math.Min(1.30, contrast));
+            _config.SaturationValue = Math.Max(0.50, Math.Min(1.50, saturation));
+
+            if (_config.SyncLockScreenSettings)
+            {
+                _config.LockContrastValue = _config.ContrastValue;
+                _config.LockSaturationValue = _config.SaturationValue;
+            }
+
+            SaveConfig();
+
+            foreach (var win in _wallpaperWindows)
+            {
+                win.SetColorControls(_config.ContrastValue, _config.SaturationValue);
+            }
+            StateChanged?.Invoke();
+        }
+
+        public void SetLockScreenColorControls(double contrast, double saturation)
+        {
+            _config.LockContrastValue = Math.Max(0.80, Math.Min(1.30, contrast));
+            _config.LockSaturationValue = Math.Max(0.50, Math.Min(1.50, saturation));
+            SaveConfig();
+            StateChanged?.Invoke();
+        }
+
         public void SetDisplayTransform(int stretchMode, double zoom, double offsetX, double offsetY)
         {
             _config.StretchMode = stretchMode;
             _config.ZoomScale = zoom;
             _config.OffsetX = offsetX;
             _config.OffsetY = offsetY;
+
+            if (_config.SyncLockScreenSettings)
+            {
+                _config.LockGravityMode = stretchMode;
+                _config.LockZoomScale = zoom;
+                _config.LockOffsetX = offsetX;
+                _config.LockOffsetY = offsetY;
+            }
+
             SaveConfig();
 
             foreach (var win in _wallpaperWindows)
@@ -272,6 +337,50 @@ namespace KMO_LiveWallpaper
                 win.SetStretchMode(stretchMode);
                 win.ApplyTransform(zoom, offsetX, offsetY);
             }
+        }
+
+        public void SetLockScreenTransform(int stretchMode, double zoom, double offsetX, double offsetY)
+        {
+            _config.LockGravityMode = stretchMode;
+            _config.LockZoomScale = zoom;
+            _config.LockOffsetX = offsetX;
+            _config.LockOffsetY = offsetY;
+            SaveConfig();
+            StateChanged?.Invoke();
+        }
+
+        public void SetLockScreenEnabled(bool enabled)
+        {
+            _config.LockScreenEnabled = enabled;
+            SaveConfig();
+            if (enabled)
+            {
+                LockScreenManager.Instance.ApplyLockScreenWallpaper();
+            }
+            StateChanged?.Invoke();
+        }
+
+        public void SetScreenSaverEnabled(bool enabled)
+        {
+            _config.ScreenSaverEnabled = enabled;
+            SaveConfig();
+            StateChanged?.Invoke();
+        }
+
+        public void SetSyncLockScreenSettings(bool enabled)
+        {
+            _config.SyncLockScreenSettings = enabled;
+            if (enabled)
+            {
+                _config.LockGravityMode = _config.StretchMode;
+                _config.LockZoomScale = _config.ZoomScale;
+                _config.LockOffsetX = _config.OffsetX;
+                _config.LockOffsetY = _config.OffsetY;
+                _config.LockContrastValue = _config.ContrastValue;
+                _config.LockSaturationValue = _config.SaturationValue;
+            }
+            SaveConfig();
+            StateChanged?.Invoke();
         }
 
         public void UpdatePlaybackState()

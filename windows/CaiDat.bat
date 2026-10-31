@@ -37,6 +37,7 @@ echo [📦] Đang cài đặt vào: %TARGET_DIR% ...
 taskkill /F /IM KMO_LiveWallpaper.exe >nul 2>nul
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 copy /Y "%EXE_SRC%" "%TARGET_DIR%\KMO_LiveWallpaper.exe" >nul
+copy /Y "%EXE_SRC%" "%TARGET_DIR%\KMO_LiveWallpaper.scr" >nul
 if exist "%~dp0app.ico" copy /Y "%~dp0app.ico" "%TARGET_DIR%\app.ico" >nul
 if exist "%~dp0app.png" copy /Y "%~dp0app.png" "%TARGET_DIR%\app.png" >nul
 if exist "%~dp0default.mp4" copy /Y "%~dp0default.mp4" "%TARGET_DIR%\default.mp4" >nul

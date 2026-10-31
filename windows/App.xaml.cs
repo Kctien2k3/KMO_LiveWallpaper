@@ -104,17 +104,30 @@ namespace KMO_LiveWallpaper
             WallpaperManager.Instance.InitializeDisplays();
 
             bool isBackground = false;
+            bool isScreenSaverMode = false;
+
             foreach (var arg in e.Args)
             {
                 if (arg.Equals("--background", StringComparison.OrdinalIgnoreCase))
                 {
                     isBackground = true;
-                    break;
+                }
+                else if (arg.StartsWith("/s", StringComparison.OrdinalIgnoreCase))
+                {
+                    isScreenSaverMode = true;
+                }
+                else if (arg.StartsWith("/c", StringComparison.OrdinalIgnoreCase))
+                {
+                    isBackground = false;
                 }
             }
 
-            // Hiển thị cửa sổ cài đặt nếu người dùng mở trực tiếp
-            if (!isBackground)
+            if (isScreenSaverMode)
+            {
+                Log("Screen saver mode invoked via /s.");
+                LockScreenManager.Instance.StartScreenSaver();
+            }
+            else if (!isBackground)
             {
                 Log("Showing MainWindow...");
                 ShowMainWindow();

@@ -220,5 +220,46 @@ namespace KMO_LiveWallpaper
                 return string.Empty;
             }
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        public const uint SPI_GETSCREENSAVETIMEOUT = 0x000E;
+        public const uint SPI_GETSCREENSAVEACTIVE = 0x0010;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, out uint pvParam, uint fWinIni);
+
+        public static uint GetIdleTimeMs()
+        {
+            var lii = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+            if (GetLastInputInfo(ref lii))
+            {
+                uint now = (uint)Environment.TickCount;
+                return (now >= lii.dwTime) ? (now - lii.dwTime) : (uint.MaxValue - lii.dwTime + now);
+            }
+            return 0;
+        }
+
+        public static uint GetWindowsScreenSaverTimeoutSeconds()
+        {
+            try
+            {
+                if (SystemParametersInfo(SPI_GETSCREENSAVETIMEOUT, 0, out uint timeoutSec, 0) && timeoutSec > 0)
+                {
+                    return timeoutSec;
+                }
+            }
+            catch { }
+            return 300; // Mặc định 5 phút (300 giây) nếu không đặt trong Windows
+        }
     }
 }

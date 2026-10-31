@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using KMO_LiveWallpaper.Effects;
 
 namespace KMO_LiveWallpaper
 {
@@ -14,6 +16,8 @@ namespace KMO_LiveWallpaper
         private double _zoom = 1.0;
         private double _offsetX = 0;
         private double _offsetY = 0;
+        private double _contrast = 1.0;
+        private double _saturation = 1.0;
 
         private int _resolutionMode = 2; // 0: 1080p, 1: 2K, 2: 4K
         private int _nativeVideoWidth = 0;
@@ -121,6 +125,39 @@ namespace KMO_LiveWallpaper
         public void SetMuted(bool isMuted)
         {
             Player.IsMuted = isMuted;
+        }
+
+        public void SetFpsMode(int mode)
+        {
+            int targetFps = mode switch
+            {
+                0 => 30,
+                2 => 120,
+                _ => 60
+            };
+            Timeline.SetDesiredFrameRate(this, targetFps);
+        }
+
+        public void SetColorControls(double contrast, double saturation)
+        {
+            _contrast = contrast;
+            _saturation = saturation;
+
+            // Tối ưu hoá phần cứng Zero-Copy: Chỉ áp dụng GPU PixelShader khi người dùng thực sự thay đổi màu sắc.
+            // Khi ở 100% (mặc định), Player.Effect = null kích hoạt Direct Hardware Scanout, triệt tiêu tải GPU!
+            bool needsFilter = Math.Abs(_contrast - 1.0) > 0.01 || Math.Abs(_saturation - 1.0) > 0.01;
+            if (needsFilter && ColorAdjustEffect.IsSupported)
+            {
+                Player.Effect = new ColorAdjustEffect
+                {
+                    Contrast = _contrast,
+                    Saturation = _saturation
+                };
+            }
+            else
+            {
+                Player.Effect = null;
+            }
         }
 
         public void SetStretchMode(int mode)

@@ -14,6 +14,7 @@ namespace KMO_LiveWallpaper
     public partial class MainWindow : Window
     {
         private bool _isInitializing = true;
+        private int _currentScopeIndex = 0; // 0: Màn hình chính, 1: Màn hình khóa & Chờ
 
         public MainWindow()
         {
@@ -115,15 +116,15 @@ namespace KMO_LiveWallpaper
             switch (mode)
             {
                 case 0:
-                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 1080p (Tiết kiệm GPU • 1920x1080)";
+                    TxtQualityNotice.Text = "Đang hạ về 1080p Full HD để tiết kiệm tài nguyên GPU và pin tối đa";
                     TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75));
                     break;
                 case 1:
-                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 2K QHD (Cân bằng độ nét • 2560x1440)";
+                    TxtQualityNotice.Text = "Đang phát ở 2K QHD sắc nét, cân bằng hoàn hảo giữa độ mịn và hiệu năng";
                     TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10));
                     break;
                 default:
-                    TxtQualityNotice.Text = "Đang phát ở chất lượng: 4K Gốc (Sắc nét tối đa • 3840x2160)";
+                    TxtQualityNotice.Text = "Đang giải mã gốc (Direct Hardware Scanout) mượt mà nhất cho GPU/CPU";
                     TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(76, 194, 255));
                     break;
             }
@@ -133,131 +134,140 @@ namespace KMO_LiveWallpaper
         {
             try
             {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string icoPath = Path.Combine(baseDir, "app.ico");
-                if (File.Exists(icoPath))
-                {
-                    Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri(icoPath));
-                }
-
-                string pngPath = Path.Combine(baseDir, "app.png");
+                string pngPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.png");
                 if (File.Exists(pngPath))
                 {
                     ImgLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(pngPath));
                 }
             }
-            catch (Exception ex)
-            {
-                App.Log($"[MainWindow] LoadAppAssets notice: {ex.Message}");
-            }
+            catch {}
         }
 
         private void SyncUIFromConfig()
         {
-            var cfg = WallpaperManager.Instance.Config;
-            TxtVideoName.Text = string.IsNullOrEmpty(cfg.VideoPath) ? "Chưa chọn video" : Path.GetFileName(cfg.VideoPath);
+            var config = WallpaperManager.Instance.Config;
+            string fileName = string.IsNullOrEmpty(config.VideoPath) ? "Chưa chọn video" : Path.GetFileName(config.VideoPath);
+            TxtVideoName.Text = fileName;
 
-            // Stretch mode
-            RbFill.IsChecked = (cfg.StretchMode == 0);
-            RbUniform.IsChecked = (cfg.StretchMode == 1);
-            RbStretch.IsChecked = (cfg.StretchMode == 2);
+            // Chất lượng phân giải
+            Rb1080p.IsChecked = (config.ResolutionMode == 0);
+            Rb2k.IsChecked = (config.ResolutionMode == 1);
+            Rb4k.IsChecked = (config.ResolutionMode == 2);
+            UpdateQualityNotice(config.ResolutionMode);
 
-            // Sliders
-            SliderZoom.Value = cfg.ZoomScale * 100.0;
-            TxtZoomVal.Text = $"{(int)Math.Round(SliderZoom.Value)}%";
+            // FPS Mode
+            RbFps30.IsChecked = (config.FpsMode == 0);
+            RbFps60.IsChecked = (config.FpsMode == 1);
+            RbFps120.IsChecked = (config.FpsMode == 2);
 
-            SliderOffsetX.Value = cfg.OffsetX;
-            TxtOffsetXVal.Text = $"{(int)Math.Round(SliderOffsetX.Value)}";
+            // Màn hình khóa & Screen Saver
+            CbLockScreen.IsChecked = config.LockScreenEnabled;
+            CbScreenSaver.IsChecked = config.ScreenSaverEnabled;
+            CbSyncLockScreen.IsChecked = config.SyncLockScreenSettings;
 
-            SliderOffsetY.Value = cfg.OffsetY;
-            TxtOffsetYVal.Text = $"{(int)Math.Round(SliderOffsetY.Value)}";
-
-            // Toggles
-            CbAutoPause90.IsChecked = cfg.AutoPause90Enabled;
-            CbCeiling.IsChecked = cfg.CeilingEnabled;
+            // Tiết kiệm năng lượng & Mức trần
+            CbAutoPause90.IsChecked = config.AutoPause90Enabled;
+            CbCeiling.IsChecked = config.CeilingEnabled;
             CbAutoLaunchStartup.IsChecked = WallpaperManager.Instance.IsAutoLaunchStartupEnabled();
-            CbMute.IsChecked = cfg.IsMuted;
+            CbMute.IsChecked = config.IsMuted;
 
-            // Resolution
-            Rb1080p.IsChecked = (cfg.ResolutionMode == 0);
-            Rb2k.IsChecked = (cfg.ResolutionMode == 1);
-            Rb4k.IsChecked = (cfg.ResolutionMode == 2);
+            // Đồng bộ Card 2 theo scope đang chọn (Desktop)
+            RefreshCard2UIForCurrentScope();
 
-            // Cập nhật khả năng chất lượng của video hiện tại
-            if (WallpaperManager.Instance.CurrentVideoWidth > 0)
+            OnWallpaperStateChanged();
+        }
+
+        private void RefreshCard2UIForCurrentScope()
+        {
+            _isInitializing = true;
+            var config = WallpaperManager.Instance.Config;
+
+            int stretch;
+            double zoom, ox, oy, contrast, saturation;
+
+            if (_currentScopeIndex == 0)
             {
-                UpdateResolutionCapabilities(
-                    WallpaperManager.Instance.CurrentVideoWidth,
-                    WallpaperManager.Instance.CurrentVideoHeight,
-                    WallpaperManager.Instance.CurrentVideoDuration
-                );
+                stretch = config.StretchMode;
+                zoom = config.ZoomScale;
+                ox = config.OffsetX;
+                oy = config.OffsetY;
+                contrast = config.ContrastValue;
+                saturation = config.SaturationValue;
             }
-            else if (!string.IsNullOrEmpty(cfg.VideoPath) && File.Exists(cfg.VideoPath))
+            else
             {
-                var (dur, w, h) = WallpaperManager.GetVideoMetadata(cfg.VideoPath);
-                if (w > 0)
-                {
-                    UpdateResolutionCapabilities(w, h, dur);
-                }
+                stretch = config.LockGravityMode;
+                zoom = config.LockZoomScale;
+                ox = config.LockOffsetX;
+                oy = config.LockOffsetY;
+                contrast = config.LockContrastValue;
+                saturation = config.LockSaturationValue;
             }
+
+            RbFill.IsChecked = (stretch == 0);
+            RbUniform.IsChecked = (stretch == 1);
+            RbStretch.IsChecked = (stretch == 2);
+
+            SliderZoom.Value = zoom * 100.0;
+            TxtZoomVal.Text = $"{(int)Math.Round(zoom * 100.0)}%";
+
+            SliderOffsetX.Value = ox;
+            TxtOffsetXVal.Text = $"{(int)Math.Round(ox)}";
+
+            SliderOffsetY.Value = oy;
+            TxtOffsetYVal.Text = $"{(int)Math.Round(oy)}";
+
+            SliderContrast.Value = contrast * 100.0;
+            TxtContrastVal.Text = $"{(int)Math.Round(contrast * 100.0)}%";
+
+            SliderSaturation.Value = saturation * 100.0;
+            TxtSaturationVal.Text = $"{(int)Math.Round(saturation * 100.0)}%";
+
+            _isInitializing = false;
         }
 
         private void OnWallpaperStateChanged()
         {
             Dispatcher.Invoke(() =>
             {
+                bool isPlaying = !WallpaperManager.Instance.IsUserPaused;
+                BtnPlayPause.Content = isPlaying ? "Tạm dừng" : "Phát tiếp";
+
                 double cov = WallpaperManager.Instance.LastCoverage;
-                bool paused = WallpaperManager.Instance.IsUserPaused;
+                double cpu = WallpaperManager.Instance.SmoothedCPU;
 
-                double ramMB = 0;
-                try
+                if (WallpaperManager.Instance.IsUserPaused)
                 {
-                    using var p = Process.GetCurrentProcess();
-                    ramMB = p.WorkingSet64 / (1024.0 * 1024.0);
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(255, 159, 10)); // Vàng cam
+                    TxtStatus.Text = "Đang tạm dừng theo yêu cầu của bạn";
                 }
-                catch { }
-
-                string resText = WallpaperManager.Instance.Config.ResolutionMode switch
+                else if (cov >= 90.0 && WallpaperManager.Instance.Config.AutoPause90Enabled)
                 {
-                    0 => "1080p",
-                    1 => "2K QHD",
-                    _ => "4K Gốc"
-                };
-
-                if (paused)
-                {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(255, 149, 0));
-                    TxtStatus.Text = $"Tạm dừng thủ công • RAM {ramMB:F0} MB";
-                    BtnPlayPause.Content = "Phát tiếp";
-                }
-                else if (cov >= 90.0)
-                {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(150, 150, 150));
-                    TxtStatus.Text = $"Đã dừng ({resText} • Che {(int)Math.Round(cov)}% > 90%) • RAM {ramMB:F0} MB";
-                    BtnPlayPause.Content = "Tạm dừng";
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(50, 215, 75)); // Xanh lá
+                    TxtStatus.Text = $"Đang dừng tiết kiệm điện (Cửa sổ che {cov:F0}% màn hình • 0% CPU)";
                 }
                 else
                 {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(76, 194, 255));
-                    TxtStatus.Text = $"Đang phát ({resText} • Che {(int)Math.Round(cov)}%) • RAM {ramMB:F0} MB";
-                    BtnPlayPause.Content = "Tạm dừng";
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(76, 194, 255)); // Xanh dương
+                    TxtStatus.Text = $"Đang phát mượt mà • Che phủ {cov:F0}% • Tải CPU: {cpu:F1}%";
                 }
             });
         }
 
         private void BtnChooseVideo_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog
+            var openFileDialog = new OpenFileDialog
             {
-                Title = "Chọn Video Hình Nền (Tối đa 60 giây)",
-                Filter = "Video Files (*.mp4;*.mov;*.wmv;*.mkv)|*.mp4;*.mov;*.wmv;*.mkv|All Files (*.*)|*.*"
+                Title = "Chọn Video Hình Nền",
+                Filter = "Tệp Video (*.mp4;*.mov;*.wmv;*.mkv)|*.mp4;*.mov;*.wmv;*.mkv|Tất cả tệp (*.*)|*.*",
+                CheckFileExists = true
             };
 
-            if (dlg.ShowDialog() == true)
+            if (openFileDialog.ShowDialog() == true)
             {
-                string selectedFile = dlg.FileName;
+                string selectedFile = openFileDialog.FileName;
 
-                // Kiểm tra thời lượng video (yêu cầu <= 60s)
+                // Kiểm tra giới hạn thời lượng video <= 60s để đảm bảo tài nguyên nhẹ mượt
                 var (duration, width, height) = WallpaperManager.GetVideoMetadata(selectedFile);
                 if (duration > TimeSpan.FromSeconds(60.5))
                 {
@@ -291,6 +301,22 @@ namespace KMO_LiveWallpaper
             OnWallpaperStateChanged();
         }
 
+        private void Fps_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            int mode = 1;
+            if (RbFps30.IsChecked == true) mode = 0;
+            else if (RbFps120.IsChecked == true) mode = 2;
+
+            WallpaperManager.Instance.SetFpsMode(mode);
+        }
+
+        private void Scope_Checked(object sender, RoutedEventArgs e)
+        {
+            _currentScopeIndex = (RbScopeDesktop.IsChecked == true) ? 0 : 1;
+            RefreshCard2UIForCurrentScope();
+        }
+
         private void Stretch_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
@@ -315,12 +341,53 @@ namespace KMO_LiveWallpaper
             ApplyCurrentTransform(mode);
         }
 
+        private void ColorSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isInitializing) return;
+            TxtContrastVal.Text = $"{(int)Math.Round(SliderContrast.Value)}%";
+            TxtSaturationVal.Text = $"{(int)Math.Round(SliderSaturation.Value)}%";
+
+            double c = SliderContrast.Value / 100.0;
+            double s = SliderSaturation.Value / 100.0;
+
+            if (_currentScopeIndex == 0)
+            {
+                WallpaperManager.Instance.SetColorControls(c, s);
+            }
+            else
+            {
+                if (WallpaperManager.Instance.Config.SyncLockScreenSettings)
+                {
+                    _isInitializing = true;
+                    CbSyncLockScreen.IsChecked = false;
+                    _isInitializing = false;
+                    WallpaperManager.Instance.SetSyncLockScreenSettings(false);
+                }
+                WallpaperManager.Instance.SetLockScreenColorControls(c, s);
+            }
+        }
+
         private void ApplyCurrentTransform(int stretchMode)
         {
             double zoom = SliderZoom.Value / 100.0;
             double ox = SliderOffsetX.Value;
             double oy = SliderOffsetY.Value;
-            WallpaperManager.Instance.SetDisplayTransform(stretchMode, zoom, ox, oy);
+
+            if (_currentScopeIndex == 0)
+            {
+                WallpaperManager.Instance.SetDisplayTransform(stretchMode, zoom, ox, oy);
+            }
+            else
+            {
+                if (WallpaperManager.Instance.Config.SyncLockScreenSettings)
+                {
+                    _isInitializing = true;
+                    CbSyncLockScreen.IsChecked = false;
+                    _isInitializing = false;
+                    WallpaperManager.Instance.SetSyncLockScreenSettings(false);
+                }
+                WallpaperManager.Instance.SetLockScreenTransform(stretchMode, zoom, ox, oy);
+            }
         }
 
         private void BtnReset_Click(object sender, RoutedEventArgs e)
@@ -330,12 +397,55 @@ namespace KMO_LiveWallpaper
             SliderZoom.Value = 100;
             SliderOffsetX.Value = 0;
             SliderOffsetY.Value = 0;
+            SliderContrast.Value = 100;
+            SliderSaturation.Value = 100;
             TxtZoomVal.Text = "100%";
             TxtOffsetXVal.Text = "0";
             TxtOffsetYVal.Text = "0";
+            TxtContrastVal.Text = "100%";
+            TxtSaturationVal.Text = "100%";
             _isInitializing = false;
 
-            ApplyCurrentTransform(0);
+            if (_currentScopeIndex == 0)
+            {
+                WallpaperManager.Instance.SetDisplayTransform(0, 1.0, 0, 0);
+                WallpaperManager.Instance.SetColorControls(1.0, 1.0);
+            }
+            else
+            {
+                if (WallpaperManager.Instance.Config.SyncLockScreenSettings)
+                {
+                    _isInitializing = true;
+                    CbSyncLockScreen.IsChecked = false;
+                    _isInitializing = false;
+                    WallpaperManager.Instance.SetSyncLockScreenSettings(false);
+                }
+                WallpaperManager.Instance.SetLockScreenTransform(0, 1.0, 0, 0);
+                WallpaperManager.Instance.SetLockScreenColorControls(1.0, 1.0);
+            }
+        }
+
+        private void CbLockScreen_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            WallpaperManager.Instance.SetLockScreenEnabled(CbLockScreen.IsChecked == true);
+        }
+
+        private void CbScreenSaver_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            WallpaperManager.Instance.SetScreenSaverEnabled(CbScreenSaver.IsChecked == true);
+        }
+
+        private void CbSyncLockScreen_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            bool isSync = (CbSyncLockScreen.IsChecked == true);
+            WallpaperManager.Instance.SetSyncLockScreenSettings(isSync);
+            if (isSync && _currentScopeIndex == 1)
+            {
+                RefreshCard2UIForCurrentScope();
+            }
         }
 
         private void CbAutoPause90_Changed(object sender, RoutedEventArgs e)

@@ -13,7 +13,9 @@
 | **🧠 Tự động dừng thông minh (`0.0% CPU`)** | Tự ngắt giải mã về `0.0% CPU` khi cửa sổ làm việc chiếm **trên 90% màn hình**, khi mở phần mềm Edit chuyên nghiệp (Adobe Premiere, After Effects, Photoshop, DaVinci Resolve, Final Cut, CapCut...), hoặc khi **Khóa màn hình (Lock Screen) / Sleep / Gập máy**. |
 | **🌊 Chuyển cảnh mượt mà 0% khựng hình** | Phát lại tức thì (`0ms`) khi về Desktop và dừng mượt (`0.45s` debounce) sau khi hiệu ứng thu/phóng cửa sổ hoặc chuyển Desktop hoàn tất. |
 | **📺 Tự động Fit màn hình TV / Multi-Monitor** | Tự động nhận diện thay đổi tỷ lệ khi cắm cáp HDMI hoặc chiếu không dây (AirPlay / Miracast) lên TV, lấp đầy tràn viền 100% không để dải đen. |
-| **🎛️ Giao diện Cài đặt trực quan** | Tuỳ chỉnh độ phân giải (`1080p`, `2K QHD`, `4K Gốc`), tốc độ khung hình (`30 FPS`, `60 FPS`, `120 FPS`), tỷ lệ (`Lấp đầy`, `Vừa khít`, `Kéo giãn`), thu phóng (`Zoom`) và dịch chuyển ngang/dọc trực quan. |
+| **🔒 Khóa màn hình (Lock Screen) & Screen Saver** | Hỗ trợ phát video trên Trình bảo vệ màn hình (Screen Saver) và cập nhật hình nền Màn hình khóa (Lock Screen). Hỗ trợ tuỳ chỉnh khung hình và màu sắc riêng biệt hoặc đồng bộ với màn hình chính. |
+| **🎨 Bộ lọc màu sắc phần cứng (Direct Scanout)** | Tuỳ chỉnh Tương phản (Contrast: 80% - 130%) và Độ rực rỡ (Saturation: 50% - 150%). Tự động kích hoạt Zero-Copy Direct Scanout khi ở 100% để triệt tiêu toàn bộ gánh nặng GPU shader. |
+| **🎛️ Giao diện Cài đặt trực quan** | Tuỳ chỉnh độ phân giải (`1080p`, `2K QHD`, `4K Gốc`), tốc độ khung hình (`30 FPS`, `60 FPS`, `120 FPS`), phạm vi (`🖥️ Màn chính` / `🔒 Khóa & Chờ`), tỷ lệ (`Lấp đầy`, `Vừa khít`, `Kéo giãn`), thu phóng (`Zoom`) và dịch chuyển ngang/dọc trực quan. |
 
 ---
 

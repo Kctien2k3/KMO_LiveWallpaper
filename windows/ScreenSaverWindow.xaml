@@ -1,0 +1,28 @@
+<Window x:Class="KMO_LiveWallpaper.ScreenSaverWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KMO_LiveWallpaper_ScreenSaver"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="Black"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="True"
+        WindowState="Maximized"
+        Cursor="None">
+    <Grid Background="Black" ClipToBounds="True">
+        <Viewbox x:Name="PlayerViewbox" Stretch="Fill">
+            <Grid x:Name="PlayerContainer">
+                <MediaElement x:Name="Player"
+                              LoadedBehavior="Manual"
+                              UnloadedBehavior="Manual"
+                              ScrubbingEnabled="False"
+                              Stretch="UniformToFill"
+                              IsMuted="True"
+                              RenderOptions.BitmapScalingMode="HighQuality"
+                              MediaOpened="Player_MediaOpened"
+                              MediaEnded="Player_MediaEnded" />
+            </Grid>
+        </Viewbox>
+    </Grid>
+</Window>
