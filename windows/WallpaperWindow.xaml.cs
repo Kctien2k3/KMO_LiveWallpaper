@@ -135,7 +135,7 @@ namespace KMO_LiveWallpaper
                 2 => 120,
                 _ => 60
             };
-            Timeline.SetDesiredFrameRate(this, targetFps);
+            App.Log($"[WallpaperWindow] SetFpsMode: {mode} ({targetFps} FPS)");
         }
 
         public void SetColorControls(double contrast, double saturation)

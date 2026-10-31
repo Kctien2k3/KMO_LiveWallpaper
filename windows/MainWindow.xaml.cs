@@ -179,6 +179,7 @@ namespace KMO_LiveWallpaper
 
         private void RefreshCard2UIForCurrentScope()
         {
+            if (RbFill == null || SliderZoom == null || SliderContrast == null || SliderSaturation == null) return;
             _isInitializing = true;
             var config = WallpaperManager.Instance.Config;
 
@@ -313,6 +314,7 @@ namespace KMO_LiveWallpaper
 
         private void Scope_Checked(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
             _currentScopeIndex = (RbScopeDesktop.IsChecked == true) ? 0 : 1;
             RefreshCard2UIForCurrentScope();
         }

@@ -103,7 +103,7 @@ namespace KMO_LiveWallpaper
                 2 => 120,
                 _ => 60
             };
-            Timeline.SetDesiredFrameRate(this, targetFps);
+            App.Log($"[ScreenSaverWindow] SetFpsMode: {fpsMode} ({targetFps} FPS)");
 
             // Tối ưu Zero-Copy: Chỉ áp dụng GPU PixelShader khi người dùng thực sự tinh chỉnh màu
             bool needsFilter = Math.Abs(contrast - 1.0) > 0.01 || Math.Abs(saturation - 1.0) > 0.01;
