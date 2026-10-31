@@ -187,34 +187,37 @@ namespace KMO_LiveWallpaper
 
         private void ApplyResolutionLayout()
         {
-            int targetW, targetH;
+            double screenW = Width > 0 ? Width : 1920;
+            double screenH = Height > 0 ? Height : 1080;
+            double aspect = screenW / Math.Max(1.0, screenH);
+
+            double targetH;
+            BitmapScalingMode scalingMode;
             switch (_resolutionMode)
             {
                 case 0:
-                    targetW = 1920;
                     targetH = 1080;
-                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.LowQuality);
-                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.LowQuality);
+                    scalingMode = BitmapScalingMode.LowQuality;
                     break;
                 case 1:
-                    targetW = 2560;
                     targetH = 1440;
-                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.Linear);
-                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.Linear);
+                    scalingMode = BitmapScalingMode.Linear;
                     break;
                 default:
-                    targetW = _nativeVideoWidth > 0 ? _nativeVideoWidth : 3840;
-                    targetH = _nativeVideoHeight > 0 ? _nativeVideoHeight : 2160;
-                    RenderOptions.SetBitmapScalingMode(Player, BitmapScalingMode.HighQuality);
-                    RenderOptions.SetBitmapScalingMode(PlayerViewbox, BitmapScalingMode.HighQuality);
+                    targetH = (_nativeVideoHeight >= 2160) ? _nativeVideoHeight : Math.Max(2160, screenH);
+                    scalingMode = BitmapScalingMode.HighQuality;
                     break;
             }
+
+            double targetW = Math.Round(targetH * aspect);
 
             if (PlayerContainer != null)
             {
                 PlayerContainer.Width = targetW;
                 PlayerContainer.Height = targetH;
-                App.Log($"[WallpaperWindow] SetResolutionMode: {_resolutionMode} -> Container={targetW}x{targetH}, ScalingMode={RenderOptions.GetBitmapScalingMode(Player)}");
+                RenderOptions.SetBitmapScalingMode(Player, scalingMode);
+                RenderOptions.SetBitmapScalingMode(PlayerViewbox, scalingMode);
+                App.Log($"[WallpaperWindow] SetResolutionMode: {_resolutionMode} -> Container={targetW}x{targetH} (Aspect={aspect:F2}), ScalingMode={scalingMode}");
             }
 
             ApplyTransform(_zoom, _offsetX, _offsetY);

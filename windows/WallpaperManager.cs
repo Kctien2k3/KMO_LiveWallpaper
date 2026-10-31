@@ -339,6 +339,40 @@ namespace KMO_LiveWallpaper
             }
         }
 
+                public void CaptureLockScreenSnapshot()
+        {
+            try
+            {
+                if (_wallpaperWindows.Count == 0) return;
+                var primaryWin = _wallpaperWindows[0];
+                primaryWin.Dispatcher.Invoke(() =>
+                {
+                    int w = (int)primaryWin.Width;
+                    int h = (int)primaryWin.Height;
+                    if (w <= 0 || h <= 0) return;
+
+                    var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    rtb.Render(primaryWin);
+
+                    string dir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "KMO_LiveWallpaper");
+                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                    string path = Path.Combine(dir, "lockscreen_wallpaper.jpg");
+                    using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                    var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 95 };
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                    encoder.Save(fs);
+                    App.Log($"[WallpaperManager] Lock screen snapshot saved: {path} ({w}x{h})");
+                });
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[WallpaperManager] CaptureLockScreenSnapshot error: {ex.Message}");
+            }
+        }
+
         public void SetLockScreenTransform(int stretchMode, double zoom, double offsetX, double offsetY)
         {
             _config.LockGravityMode = stretchMode;

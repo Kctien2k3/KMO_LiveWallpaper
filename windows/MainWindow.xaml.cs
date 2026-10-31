@@ -27,7 +27,11 @@ namespace KMO_LiveWallpaper
             WallpaperManager.Instance.StateChanged += OnWallpaperStateChanged;
             WallpaperManager.Instance.VideoInfoUpdated += OnVideoInfoUpdated;
             Closing += OnWindowClosing;
-            Loaded += (s, e) => App.Log("[MainWindow] Event: Loaded");
+            Loaded += (s, e) =>
+            {
+                App.Log("[MainWindow] Event: Loaded");
+                OnWallpaperStateChanged();
+            };
             App.Log("[MainWindow] Constructor complete");
         }
 
@@ -46,35 +50,11 @@ namespace KMO_LiveWallpaper
                 TxtVideoName.Text = fileName;
                 TxtVideoName.ToolTip = $"Tệp: {fileName}\nĐộ phân giải gốc: {width}x{height}\nThời lượng: {duration:mm\\:ss}";
 
-                bool supports4k = (width >= 3840 || height >= 2160);
-                bool supports2k = (width >= 2560 || height >= 1440);
+                int maxDim = Math.Max(width, height);
+                int minDim = Math.Min(width, height);
+                bool supports4k = (maxDim >= 3200 || minDim >= 1800);
+                bool supports2k = (maxDim >= 2000 || minDim >= 1200);
                 bool supports1080p = true; // 1080p luôn khả dụng
-
-                // Cập nhật thông tin kỹ thuật gốc
-                if (width > 0 && height > 0)
-                {
-                    string resCategory = supports4k ? "4K UHD" : supports2k ? "2K QHD" : "1080p Full HD";
-                    TxtNativeResInfo.Text = $"{width}x{height} ({resCategory}) • {(duration > TimeSpan.Zero ? $"{duration:mm\\:ss}" : "<60s")}";
-                    TxtNativeResInfo.Foreground = supports4k ? new SolidColorBrush(Color.FromRgb(76, 194, 255))
-                                                : supports2k ? new SolidColorBrush(Color.FromRgb(255, 159, 10))
-                                                : new SolidColorBrush(Color.FromRgb(50, 215, 75));
-
-                    if (supports4k)
-                    {
-                        TxtSupportedModesInfo.Text = "Khả dụng: 1080p, 2K, 4K";
-                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75));
-                    }
-                    else if (supports2k)
-                    {
-                        TxtSupportedModesInfo.Text = "Khả dụng: 1080p, 2K (Khóa 4K)";
-                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10));
-                    }
-                    else
-                    {
-                        TxtSupportedModesInfo.Text = "Khả dụng: Chỉ 1080p (Khóa 2K, 4K)";
-                        TxtSupportedModesInfo.Foreground = new SolidColorBrush(Color.FromRgb(255, 69, 58));
-                    }
-                }
 
                 // Cập nhật trạng thái và nhãn của 3 nút lựa chọn chất lượng
                 Rb1080p.IsEnabled = supports1080p;
@@ -82,22 +62,19 @@ namespace KMO_LiveWallpaper
                 Rb4k.IsEnabled = supports4k;
 
                 Rb1080p.Content = "1080p";
-                Rb2k.Content = supports2k ? "2K QHD" : "2K (Khóa 🔒)";
-                Rb4k.Content = supports4k ? "4K Gốc" : "4K (Khóa 🔒)";
+                Rb2k.Content = supports2k ? "2K QHD" : "2K 🔒";
+                Rb4k.Content = supports4k ? "4K Gốc" : "4K 🔒";
 
-                Rb1080p.ToolTip = "Phát ở độ phân giải 1080p Full HD";
-                Rb2k.ToolTip = supports2k ? "Phát ở độ phân giải 2K QHD (2560x1440)" : "Video gốc không đủ độ phân giải 2K (bị khóa)";
-                Rb4k.ToolTip = supports4k ? "Phát ở độ phân giải 4K gốc (3840x2160)" : "Video gốc không đủ độ phân giải 4K (bị khóa)";
+                Rb1080p.ToolTip = "Phát ở độ phân giải 1080p Full HD (Tiết kiệm GPU & RAM)";
+                Rb2k.ToolTip = supports2k ? "Phát ở độ phân giải 2K QHD sắc nét" : "Video gốc không đủ độ phân giải 2K (bị khóa)";
+                Rb4k.ToolTip = supports4k ? "Phát ở độ phân giải 4K gốc (Direct Hardware Scanout)" : "Video gốc không đủ độ phân giải 4K (bị khóa)";
 
                 // Tự động điều chỉnh chế độ nếu chế độ hiện tại vượt quá chất lượng video gốc
                 int currentMode = WallpaperManager.Instance.Config.ResolutionMode;
-                if (currentMode == 2 && !supports4k)
+                int maxAllowed = supports4k ? 2 : (supports2k ? 1 : 0);
+                if (currentMode > maxAllowed)
                 {
-                    currentMode = supports2k ? 1 : 0;
-                }
-                else if (currentMode == 1 && !supports2k)
-                {
-                    currentMode = 0;
+                    currentMode = maxAllowed;
                 }
 
                 _isInitializing = true;
@@ -108,6 +85,7 @@ namespace KMO_LiveWallpaper
 
                 UpdateQualityNotice(currentMode);
                 WallpaperManager.Instance.SetResolutionMode(currentMode);
+                OnWallpaperStateChanged();
             });
         }
 
@@ -116,16 +94,16 @@ namespace KMO_LiveWallpaper
             switch (mode)
             {
                 case 0:
-                    TxtQualityNotice.Text = "Đang hạ về 1080p Full HD để tiết kiệm tài nguyên GPU và pin tối đa";
-                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75));
+                    TxtQualityNotice.Text = "Đang phát 1080p Full HD • Tiết kiệm GPU & RAM tối đa";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(50, 215, 75)); // Green
                     break;
                 case 1:
-                    TxtQualityNotice.Text = "Đang phát ở 2K QHD sắc nét, cân bằng hoàn hảo giữa độ mịn và hiệu năng";
-                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10));
+                    TxtQualityNotice.Text = "Đang phát 2K QHD sắc nét • Cân bằng hoàn hảo giữa độ mịn và hiệu năng";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(255, 159, 10)); // Orange
                     break;
                 default:
-                    TxtQualityNotice.Text = "Đang giải mã gốc (Direct Hardware Scanout) mượt mà nhất cho GPU/CPU";
-                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(76, 194, 255));
+                    TxtQualityNotice.Text = "Đang giải mã 4K gốc (Direct Hardware Scanout) • Sắc nét đỉnh cao";
+                    TxtQualityNotice.Foreground = new SolidColorBrush(Color.FromRgb(76, 194, 255)); // Blue
                     break;
             }
         }
@@ -148,6 +126,7 @@ namespace KMO_LiveWallpaper
             var config = WallpaperManager.Instance.Config;
             string fileName = string.IsNullOrEmpty(config.VideoPath) ? "Chưa chọn video" : Path.GetFileName(config.VideoPath);
             TxtVideoName.Text = fileName;
+            TxtVideoName.ToolTip = config.VideoPath;
 
             // Chất lượng phân giải
             Rb1080p.IsChecked = (config.ResolutionMode == 0);
@@ -171,17 +150,32 @@ namespace KMO_LiveWallpaper
             CbAutoLaunchStartup.IsChecked = WallpaperManager.Instance.IsAutoLaunchStartupEnabled();
             CbMute.IsChecked = config.IsMuted;
 
-            // Đồng bộ Card 2 theo scope đang chọn (Desktop)
+            // Phạm vi tác động & Khung hình
+            RbScopeDesktop.IsChecked = true;
+            _currentScopeIndex = 0;
             RefreshCard2UIForCurrentScope();
 
-            OnWallpaperStateChanged();
+            // Nhận diện metadata nếu video đã có sẵn
+            if (!string.IsNullOrEmpty(config.VideoPath) && File.Exists(config.VideoPath))
+            {
+                var (dur, w, h) = WallpaperManager.GetVideoMetadata(config.VideoPath);
+                if (w > 0 && h > 0)
+                {
+                    UpdateResolutionCapabilities(w, h, dur);
+                }
+            }
         }
 
         private void RefreshCard2UIForCurrentScope()
         {
-            if (RbFill == null || SliderZoom == null || SliderContrast == null || SliderSaturation == null) return;
             _isInitializing = true;
             var config = WallpaperManager.Instance.Config;
+
+            if (RbFill == null || SliderZoom == null || SliderContrast == null || SliderSaturation == null)
+            {
+                _isInitializing = false;
+                return;
+            }
 
             int stretch;
             double zoom, ox, oy, contrast, saturation;
@@ -231,26 +225,50 @@ namespace KMO_LiveWallpaper
         {
             Dispatcher.Invoke(() =>
             {
+                var config = WallpaperManager.Instance.Config;
+                string resText = config.ResolutionMode switch
+                {
+                    0 => "1080p",
+                    1 => "2K",
+                    _ => "4K"
+                };
+                string fpsText = config.FpsMode switch
+                {
+                    0 => "30 FPS",
+                    1 => "60 FPS",
+                    _ => "120 FPS"
+                };
+
                 bool isPlaying = !WallpaperManager.Instance.IsUserPaused;
                 BtnPlayPause.Content = isPlaying ? "Tạm dừng" : "Phát tiếp";
 
                 double cov = WallpaperManager.Instance.LastCoverage;
                 double cpu = WallpaperManager.Instance.SmoothedCPU;
+                long memMB = 0;
+                try
+                {
+                    using var proc = Process.GetCurrentProcess();
+                    memMB = proc.WorkingSet64 / (1024 * 1024);
+                }
+                catch { }
+
+                string metricStr = $"CPU {cpu:F1}% • RAM {memMB} MB";
+                int covVal = (int)Math.Round(cov);
 
                 if (WallpaperManager.Instance.IsUserPaused)
                 {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(255, 159, 10)); // Vàng cam
-                    TxtStatus.Text = "Đang tạm dừng theo yêu cầu của bạn";
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(142, 142, 147)); // Gray
+                    TxtStatus.Text = $"Đã tạm dừng ({resText} • {fpsText}) • {metricStr}";
                 }
-                else if (cov >= 90.0 && WallpaperManager.Instance.Config.AutoPause90Enabled)
+                else if (cov >= 90.0 && config.AutoPause90Enabled)
                 {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(50, 215, 75)); // Xanh lá
-                    TxtStatus.Text = $"Đang dừng tiết kiệm điện (Cửa sổ che {cov:F0}% màn hình • 0% CPU)";
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(142, 142, 147)); // Gray
+                    TxtStatus.Text = $"Đã dừng (Che {covVal}% > 90%) • {metricStr}";
                 }
                 else
                 {
-                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(76, 194, 255)); // Xanh dương
-                    TxtStatus.Text = $"Đang phát mượt mà • Che phủ {cov:F0}% • Tải CPU: {cpu:F1}%";
+                    DotStatus.Fill = new SolidColorBrush(Color.FromRgb(50, 215, 75)); // Green
+                    TxtStatus.Text = $"Đang phát ({resText} • {fpsText} • Che {covVal}%) • {metricStr}";
                 }
             });
         }
@@ -297,6 +315,18 @@ namespace KMO_LiveWallpaper
             if (Rb1080p.IsChecked == true) mode = 0;
             else if (Rb2k.IsChecked == true) mode = 1;
 
+            bool allowed = (mode == 0) || (mode == 1 && Rb2k.IsEnabled) || (mode == 2 && Rb4k.IsEnabled);
+            if (!allowed)
+            {
+                _isInitializing = true;
+                int fallback = WallpaperManager.Instance.Config.ResolutionMode;
+                Rb1080p.IsChecked = (fallback == 0);
+                Rb2k.IsChecked = (fallback == 1);
+                Rb4k.IsChecked = (fallback == 2);
+                _isInitializing = false;
+                return;
+            }
+
             UpdateQualityNotice(mode);
             WallpaperManager.Instance.SetResolutionMode(mode);
             OnWallpaperStateChanged();
@@ -310,6 +340,7 @@ namespace KMO_LiveWallpaper
             else if (RbFps120.IsChecked == true) mode = 2;
 
             WallpaperManager.Instance.SetFpsMode(mode);
+            OnWallpaperStateChanged();
         }
 
         private void Scope_Checked(object sender, RoutedEventArgs e)
@@ -477,6 +508,7 @@ namespace KMO_LiveWallpaper
         private void BtnPlayPause_Click(object sender, RoutedEventArgs e)
         {
             WallpaperManager.Instance.TogglePlayPause();
+            OnWallpaperStateChanged();
         }
 
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)

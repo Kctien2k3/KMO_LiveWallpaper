@@ -142,6 +142,8 @@ namespace KMO_LiveWallpaper
                 string videoPath = config.VideoPath;
                 if (string.IsNullOrEmpty(videoPath) || !File.Exists(videoPath)) return;
 
+                WallpaperManager.Instance.CaptureLockScreenSnapshot();
+
                 string lockscreenDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "KMO_LiveWallpaper");

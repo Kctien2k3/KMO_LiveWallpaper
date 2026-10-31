@@ -2,56 +2,258 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KMO Live Wallpaper"
-        Width="550" Height="730"
+        Width="490" Height="860"
         WindowStartupLocation="CenterScreen"
-        Background="#1C1C1E"
+        Background="#18181A"
         Foreground="#ECECEC"
         ResizeMode="CanMinimize"
         ShowInTaskbar="True"
-        FontFamily="Segoe UI, -apple-system, Arial">
+        FontFamily="Segoe UI Variable Display, Segoe UI, -apple-system, sans-serif"
+        TextOptions.TextFormattingMode="Display"
+        RenderOptions.BitmapScalingMode="HighQuality"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
     <Window.Resources>
+        <!-- Apple Dark Mode Card Style -->
         <Style TargetType="Border" x:Key="CardStyle">
-            <Setter Property="Background" Value="#252528" />
-            <Setter Property="BorderBrush" Value="#38383C" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="#222225" />
+            <Setter Property="BorderBrush" Value="#323236" />
+            <Setter Property="BorderThickness" Value="0.8" />
+            <Setter Property="CornerRadius" Value="11" />
             <Setter Property="Margin" Value="16,0,16,12" />
             <Setter Property="Padding" Value="14,10" />
         </Style>
-        <Style TargetType="Button" x:Key="ModernBtn">
-            <Setter Property="Background" Value="#333336" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#4F4F54" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,5" />
+
+        <!-- Segmented Control Capsule Container -->
+        <Style TargetType="Border" x:Key="SegmentContainer">
+            <Setter Property="Background" Value="#18181A" />
+            <Setter Property="BorderBrush" Value="#333336" />
+            <Setter Property="BorderThickness" Value="0.8" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+
+        <!-- Modern Segmented Pill RadioButton (Zero-Bullet, Apple NSSegmentedControl Style) -->
+        <Style TargetType="RadioButton" x:Key="SegmentPillBtn">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#8E8E93" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="PillBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsChecked" Value="False" />
+                                    <Condition Property="IsEnabled" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="PillBorder" Property="Background" Value="#20FFFFFF" />
+                                <Setter Property="Foreground" Value="#F2F2F7" />
+                            </MultiTrigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="PillBorder" Property="Background" Value="#5E5E62" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter TargetName="PillBorder" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect BlurRadius="4" ShadowDepth="1" Direction="270" Opacity="0.3" Color="#000000" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.30" />
+                                <Setter Property="Foreground" Value="#555558" />
+                                <Setter Property="Cursor" Value="No" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style TargetType="RadioButton" x:Key="SegmentRadioBtn">
-            <Setter Property="Foreground" Value="#CCCCCC" />
+
+        <!-- Modern Toggle Switch (Apple NSSwitch Style) -->
+        <Style TargetType="CheckBox" x:Key="ModernToggleSwitch">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Cursor" Value="Hand" />
-            <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter Property="Foreground" Value="#4CC2FF" />
-                    <Setter Property="FontWeight" Value="SemiBold" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.28" />
-                    <Setter Property="Foreground" Value="#666666" />
-                    <Setter Property="Cursor" Value="No" />
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="SwitchTrack"
+                                Width="38" Height="22"
+                                CornerRadius="11"
+                                Background="#3A3A3C"
+                                BorderBrush="#48484A"
+                                BorderThickness="0.6">
+                            <Canvas Width="38" Height="22">
+                                <Ellipse x:Name="SwitchThumb"
+                                         Width="18" Height="18"
+                                         Canvas.Left="2" Canvas.Top="1.4"
+                                         Fill="#FFFFFF">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect BlurRadius="3" ShadowDepth="1" Direction="270" Opacity="0.35" Color="#000000" />
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                            </Canvas>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#34C759" />
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#30B753" />
+                                <Setter TargetName="SwitchThumb" Property="Canvas.Left" Value="17.5" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                                <Setter Property="Cursor" Value="No" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Sleek Slider (Apple / Fluent Thin Track) -->
+        <Style TargetType="Slider" x:Key="ModernSlider">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="MinHeight" Value="22" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid VerticalAlignment="Center">
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate>
+                                                <Border Height="4" CornerRadius="2" Background="#0A84FF" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate>
+                                                <Border Height="4" CornerRadius="2" Background="#38383A" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate>
+                                                <Ellipse Width="16" Height="16" Fill="#FFFFFF" Stroke="#202023" StrokeThickness="0.5">
+                                                    <Ellipse.Effect>
+                                                        <DropShadowEffect BlurRadius="4" ShadowDepth="1" Direction="270" Opacity="0.35" Color="#000000" />
+                                                    </Ellipse.Effect>
+                                                </Ellipse>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Button Style (Apple Rounded) -->
+        <Style TargetType="Button" x:Key="ModernBtn">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Background" Value="#2C2C2E" />
+            <Setter Property="Foreground" Value="#F2F2F7" />
+            <Setter Property="BorderBrush" Value="#3A3A3C" />
+            <Setter Property="BorderThickness" Value="0.8" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#3A3A3E" />
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#48484A" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#1C1C1E" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                                <Setter Property="Cursor" Value="No" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Danger Button (Thoát) -->
+        <Style TargetType="Button" x:Key="DangerBtn" BasedOn="{StaticResource ModernBtn}">
+            <Setter Property="Background" Value="#331A1A" />
+            <Setter Property="BorderBrush" Value="#542525" />
+            <Setter Property="Foreground" Value="#FF6B6B" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#482222" />
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#6E3030" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#221010" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator" x:Key="RowDivider">
+            <Setter Property="Background" Value="#2D2D31" />
+            <Setter Property="Height" Value="0.8" />
+            <Setter Property="Margin" Value="28,5,0,5" />
         </Style>
     </Window.Resources>
 
@@ -66,12 +268,12 @@
             <StackPanel Margin="0,14,0,0">
 
                 <!-- Header Brand Card -->
-                <Border Style="{StaticResource CardStyle}" Padding="16,10">
+                <Border Style="{StaticResource CardStyle}" Padding="14,9">
                     <DockPanel>
-                        <Image x:Name="ImgLogo" Width="40" Height="40" Margin="0,0,12,0" VerticalAlignment="Center" />
+                        <Image x:Name="ImgLogo" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="KMO Live Wallpaper" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
-                            <TextBlock Text="Native Live Wallpaper • Tối ưu phần cứng &amp; Zero-Copy GPU" FontSize="11.5" Foreground="#888888" Margin="0,2,0,0" />
+                            <TextBlock Text="KMO Live Wallpaper" FontWeight="Bold" FontSize="14.5" Foreground="#FFFFFF" />
+                            <TextBlock Text="Native Hardware Scanout • GPU Zero-Copy Engine" FontSize="11" Foreground="#8E8E93" Margin="0,1,0,0" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -79,60 +281,53 @@
                 <!-- CARD 1: Video & Tuỳ chọn phát -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🎬 Video nền" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="13" />
-                            <Button Content="Chọn..." Width="70" DockPanel.Dock="Right" Style="{StaticResource ModernBtn}" Click="BtnChooseVideo_Click" />
-                            <TextBlock x:Name="TxtVideoName" Text="Chưa chọn video" Foreground="#AAAAAA"
-                                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                        <!-- Row 1: Video nền -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="🎬" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Video nền" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <Button Content="Chọn..." DockPanel.Dock="Right" Style="{StaticResource ModernBtn}"
+                                    Width="68" Height="26" Padding="6,2" Margin="8,0,0,0" Click="BtnChooseVideo_Click" />
+                            <TextBlock x:Name="TxtVideoName" Text="Chưa chọn video" Foreground="#8E8E93" FontSize="12.5"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="195" />
                         </DockPanel>
 
-                        <!-- Khung thông tin kỹ thuật video gốc -->
-                        <Border Background="#1C1C1E" CornerRadius="6" Padding="10,6" Margin="0,0,0,8" BorderBrush="#333333" BorderThickness="1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="THÔNG TIN GỐC TỆP VIDEO" FontSize="10" FontWeight="Bold" Foreground="#888888" />
-                                    <TextBlock x:Name="TxtNativeResInfo" Text="Đang nhận diện tệp..." FontSize="12.5" FontWeight="SemiBold" Foreground="#4CC2FF" Margin="0,2,0,0" />
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 2: Chất lượng (Segmented Pill) -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="✨" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Chất lượng" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <Border Style="{StaticResource SegmentContainer}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="Rb1080p" Content="1080p" GroupName="ResolutionGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Resolution_Checked" />
+                                    <RadioButton x:Name="Rb2k" Content="2K QHD" GroupName="ResolutionGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Resolution_Checked" />
+                                    <RadioButton x:Name="Rb4k" Content="4K Gốc" GroupName="ResolutionGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" IsChecked="True" Checked="Resolution_Checked" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" x:Name="TxtSupportedModesInfo" Text="Khả dụng: 1080p, 2K, 4K"
-                                           FontSize="11" Foreground="#32D74B" VerticalAlignment="Center" FontWeight="Medium" />
-                            </Grid>
-                        </Border>
-
-                        <Separator Background="#333336" Margin="0,4,0,8" />
-
-                        <!-- Lựa chọn độ phân giải phát -->
-                        <DockPanel Margin="0,2,0,4">
-                            <TextBlock Text="✨ Chất lượng" VerticalAlignment="Center" FontSize="12.5" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <RadioButton x:Name="Rb1080p" Content="1080p" GroupName="ResolutionGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             Margin="0,0,14,0" VerticalAlignment="Center" Checked="Resolution_Checked" />
-                                <RadioButton x:Name="Rb2k" Content="2K QHD" GroupName="ResolutionGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             Margin="0,0,14,0" VerticalAlignment="Center" Checked="Resolution_Checked" />
-                                <RadioButton x:Name="Rb4k" Content="4K Gốc" GroupName="ResolutionGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             IsChecked="True" VerticalAlignment="Center" Checked="Resolution_Checked" />
-                            </StackPanel>
+                            </Border>
                         </DockPanel>
 
                         <TextBlock x:Name="TxtQualityNotice" Text="Đang giải mã gốc (Direct Hardware Scanout) mượt mà nhất cho GPU/CPU"
-                                   FontSize="11" Foreground="#4CC2FF" Margin="0,2,0,4" HorizontalAlignment="Right" />
+                                   FontSize="11" Foreground="#4CC2FF" Margin="28,2,0,4" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <!-- Tốc độ khung hình (FPS Mode) -->
+                        <!-- Row 3: Tốc độ FPS (Segmented Pill) -->
                         <DockPanel Margin="0,2,0,2">
-                            <TextBlock Text="⚡ Tốc độ FPS" VerticalAlignment="Center" FontSize="12.5" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <RadioButton x:Name="RbFps30" Content="30 FPS" GroupName="FpsGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             Margin="0,0,14,0" VerticalAlignment="Center" Checked="Fps_Checked" />
-                                <RadioButton x:Name="RbFps60" Content="60 FPS" GroupName="FpsGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             IsChecked="True" Margin="0,0,14,0" VerticalAlignment="Center" Checked="Fps_Checked" />
-                                <RadioButton x:Name="RbFps120" Content="120 FPS" GroupName="FpsGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             VerticalAlignment="Center" Checked="Fps_Checked" />
-                            </StackPanel>
+                            <TextBlock Text="⚡" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Tốc độ FPS" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <Border Style="{StaticResource SegmentContainer}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="RbFps30" Content="30 FPS" GroupName="FpsGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Fps_Checked" />
+                                    <RadioButton x:Name="RbFps60" Content="60 FPS" GroupName="FpsGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" IsChecked="True" Checked="Fps_Checked" />
+                                    <RadioButton x:Name="RbFps120" Content="120 FPS" GroupName="FpsGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Fps_Checked" />
+                                </StackPanel>
+                            </Border>
                         </DockPanel>
                     </StackPanel>
                 </Border>
@@ -140,65 +335,98 @@
                 <!-- CARD 2: Khung hình & Màu sắc -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <!-- Phân đoạn phạm vi áp dụng (Scope Segment) -->
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🎯 Áp dụng cho" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="13" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <RadioButton x:Name="RbScopeDesktop" Content="🖥️ Màn chính" GroupName="ScopeGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             IsChecked="True" Margin="0,0,14,0" VerticalAlignment="Center" Checked="Scope_Checked" />
-                                <RadioButton x:Name="RbScopeLock" Content="🔒 Khóa &amp; Chờ" GroupName="ScopeGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             VerticalAlignment="Center" Checked="Scope_Checked" />
-                            </StackPanel>
-                        </DockPanel>
-
-                        <Separator Background="#333336" Margin="0,4,0,8" />
-
-                        <!-- Chế độ Khung hình + Nút Đặt lại -->
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="📐 Khung hình" VerticalAlignment="Center" FontSize="12.5" />
-                            <Button Content="Đặt lại" Width="55" Height="22" Margin="10,0,0,0" Style="{StaticResource ModernBtn}"
-                                    FontSize="11" Padding="4,1" Click="BtnReset_Click" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <RadioButton x:Name="RbFill" Content="Lấp đầy" GroupName="StretchGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             IsChecked="True" Margin="0,0,12,0" VerticalAlignment="Center" Checked="Stretch_Checked" />
-                                <RadioButton x:Name="RbUniform" Content="Vừa khít" GroupName="StretchGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             Margin="0,0,12,0" VerticalAlignment="Center" Checked="Stretch_Checked" />
-                                <RadioButton x:Name="RbStretch" Content="Kéo giãn" GroupName="StretchGroup" Style="{StaticResource SegmentRadioBtn}"
-                                             VerticalAlignment="Center" Checked="Stretch_Checked" />
-                            </StackPanel>
-                        </DockPanel>
-
-                        <DockPanel Margin="0,2,0,6">
-                            <TextBlock Text="🔍 Thu phóng" VerticalAlignment="Center" FontSize="12.5" />
-                            <TextBlock x:Name="TxtZoomVal" Text="100%" Width="45" TextAlignment="Right" DockPanel.Dock="Right" Foreground="#AAAAAA" />
-                            <Slider x:Name="SliderZoom" Minimum="50" Maximum="200" Value="100" Margin="10,0,10,0" ValueChanged="Transform_Changed" />
-                        </DockPanel>
-
-                        <DockPanel Margin="0,2,0,6">
-                            <TextBlock Text="↔ Dịch ngang" VerticalAlignment="Center" FontSize="12.5" />
-                            <TextBlock x:Name="TxtOffsetXVal" Text="0" Width="45" TextAlignment="Right" DockPanel.Dock="Right" Foreground="#AAAAAA" />
-                            <Slider x:Name="SliderOffsetX" Minimum="-600" Maximum="600" Value="0" Margin="10,0,10,0" ValueChanged="Transform_Changed" />
-                        </DockPanel>
-
-                        <DockPanel Margin="0,2,0,6">
-                            <TextBlock Text="↕ Dịch dọc" VerticalAlignment="Center" FontSize="12.5" />
-                            <TextBlock x:Name="TxtOffsetYVal" Text="0" Width="45" TextAlignment="Right" DockPanel.Dock="Right" Foreground="#AAAAAA" />
-                            <Slider x:Name="SliderOffsetY" Minimum="-500" Maximum="500" Value="0" Margin="10,0,10,0" ValueChanged="Transform_Changed" />
-                        </DockPanel>
-
-                        <Separator Background="#333336" Margin="0,4,0,8" />
-
-                        <!-- Bộ lọc màu sắc: Tương phản & Độ rực rỡ -->
-                        <DockPanel Margin="0,2,0,6">
-                            <TextBlock Text="🌗 Tương phản" VerticalAlignment="Center" FontSize="12.5" />
-                            <TextBlock x:Name="TxtContrastVal" Text="100%" Width="45" TextAlignment="Right" DockPanel.Dock="Right" Foreground="#AAAAAA" />
-                            <Slider x:Name="SliderContrast" Minimum="80" Maximum="130" Value="100" Margin="10,0,10,0" ValueChanged="ColorSlider_Changed" />
-                        </DockPanel>
-
+                        <!-- Row 1: Áp dụng cho (Scope) -->
                         <DockPanel Margin="0,2,0,2">
-                            <TextBlock Text="🎨 Độ rực rỡ" VerticalAlignment="Center" FontSize="12.5" />
-                            <TextBlock x:Name="TxtSaturationVal" Text="100%" Width="45" TextAlignment="Right" DockPanel.Dock="Right" Foreground="#AAAAAA" />
-                            <Slider x:Name="SliderSaturation" Minimum="50" Maximum="150" Value="100" Margin="10,0,10,0" ValueChanged="ColorSlider_Changed" />
+                            <TextBlock Text="🎯" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Áp dụng cho" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <Border Style="{StaticResource SegmentContainer}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="RbScopeDesktop" Content="🖥️ Màn chính" GroupName="ScopeGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" IsChecked="True" Checked="Scope_Checked" />
+                                    <RadioButton x:Name="RbScopeLock" Content="🔒 Khóa &amp; Chờ" GroupName="ScopeGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Scope_Checked" />
+                                </StackPanel>
+                            </Border>
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 2: Khung hình + Nút Đặt lại -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="📐" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Khung hình" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <Button Content="Đặt lại" DockPanel.Dock="Left" Height="22" Margin="8,0,0,0"
+                                    Style="{StaticResource ModernBtn}" FontSize="11" Padding="6,1" Click="BtnReset_Click" />
+                            <Border Style="{StaticResource SegmentContainer}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="RbFill" Content="Lấp đầy" GroupName="StretchGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" IsChecked="True" Checked="Stretch_Checked" />
+                                    <RadioButton x:Name="RbUniform" Content="Vừa khít" GroupName="StretchGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Stretch_Checked" />
+                                    <RadioButton x:Name="RbStretch" Content="Kéo giãn" GroupName="StretchGroup"
+                                                 Style="{StaticResource SegmentPillBtn}" Checked="Stretch_Checked" />
+                                </StackPanel>
+                            </Border>
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 3: Thu phóng -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="🔍" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Thu phóng" Width="85" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <TextBlock x:Name="TxtZoomVal" Text="100%" Width="40" TextAlignment="Right"
+                                       DockPanel.Dock="Right" Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" />
+                            <Slider x:Name="SliderZoom" Minimum="50" Maximum="200" Value="100"
+                                    Margin="8,0,10,0" Style="{StaticResource ModernSlider}" ValueChanged="Transform_Changed" />
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 4: Dịch ngang -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="↔" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Dịch ngang" Width="85" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <TextBlock x:Name="TxtOffsetXVal" Text="0" Width="40" TextAlignment="Right"
+                                       DockPanel.Dock="Right" Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" />
+                            <Slider x:Name="SliderOffsetX" Minimum="-600" Maximum="600" Value="0"
+                                    Margin="8,0,10,0" Style="{StaticResource ModernSlider}" ValueChanged="Transform_Changed" />
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 5: Dịch dọc -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="↕" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Dịch dọc" Width="85" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <TextBlock x:Name="TxtOffsetYVal" Text="0" Width="40" TextAlignment="Right"
+                                       DockPanel.Dock="Right" Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" />
+                            <Slider x:Name="SliderOffsetY" Minimum="-500" Maximum="500" Value="0"
+                                    Margin="8,0,10,0" Style="{StaticResource ModernSlider}" ValueChanged="Transform_Changed" />
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 6: Tương phản -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="🌗" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Tương phản" Width="85" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <TextBlock x:Name="TxtContrastVal" Text="100%" Width="40" TextAlignment="Right"
+                                       DockPanel.Dock="Right" Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" />
+                            <Slider x:Name="SliderContrast" Minimum="80" Maximum="130" Value="100"
+                                    Margin="8,0,10,0" Style="{StaticResource ModernSlider}" ValueChanged="ColorSlider_Changed" />
+                        </DockPanel>
+
+                        <Separator Style="{StaticResource RowDivider}" />
+
+                        <!-- Row 7: Độ rực rỡ -->
+                        <DockPanel Margin="0,2,0,2">
+                            <TextBlock Text="🎨" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Độ rực rỡ" Width="85" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <TextBlock x:Name="TxtSaturationVal" Text="100%" Width="40" TextAlignment="Right"
+                                       DockPanel.Dock="Right" Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" />
+                            <Slider x:Name="SliderSaturation" Minimum="50" Maximum="150" Value="100"
+                                    Margin="8,0,10,0" Style="{StaticResource ModernSlider}" ValueChanged="ColorSlider_Changed" />
                         </DockPanel>
                     </StackPanel>
                 </Border>
@@ -206,23 +434,32 @@
                 <!-- CARD 3: Màn hình khóa & Screen Saver -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🔒 Chạy trên Màn hình khóa (Lock screen)" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbLockScreen" IsChecked="True" HorizontalAlignment="Right" Checked="CbLockScreen_Changed" Unchecked="CbLockScreen_Changed" />
+                        <!-- Row 1: Lock screen -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🔒" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Chạy trên Màn hình khóa (Lock screen)" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbLockScreen" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbLockScreen_Changed" Unchecked="CbLockScreen_Changed" />
                         </DockPanel>
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🌙 Chạy trên Trình bảo vệ màn hình (Screen saver)" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbScreenSaver" IsChecked="True" HorizontalAlignment="Right" Checked="CbScreenSaver_Changed" Unchecked="CbScreenSaver_Changed" />
+                        <!-- Row 2: Screen saver -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🌙" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Chạy trên Trình bảo vệ màn hình (Screen saver)" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbScreenSaver" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbScreenSaver_Changed" Unchecked="CbScreenSaver_Changed" />
                         </DockPanel>
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <DockPanel Margin="0,2,0,2">
-                            <TextBlock Text="🔗 Đồng bộ kích cỡ &amp; màu với màn chính" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbSyncLockScreen" IsChecked="True" HorizontalAlignment="Right" Checked="CbSyncLockScreen_Changed" Unchecked="CbSyncLockScreen_Changed" />
+                        <!-- Row 3: Sync -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🔗" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Đồng bộ kích cỡ &amp; màu với màn chính" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbSyncLockScreen" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbSyncLockScreen_Changed" Unchecked="CbSyncLockScreen_Changed" />
                         </DockPanel>
                     </StackPanel>
                 </Border>
@@ -230,56 +467,69 @@
                 <!-- CARD 4: Tiết kiệm năng lượng & Mức trần -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🖥️ Tự dừng khi cửa sổ đạt trên 90% màn hình" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbAutoPause90" IsChecked="True" HorizontalAlignment="Right" Checked="CbAutoPause90_Changed" Unchecked="CbAutoPause90_Changed" />
+                        <!-- Row 1: Auto pause > 90% -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🖥️" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Tự dừng khi cửa sổ đạt trên 90% màn hình" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbAutoPause90" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbAutoPause90_Changed" Unchecked="CbAutoPause90_Changed" />
                         </DockPanel>
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="⚡ Trần tối ưu ≤ 5% CPU &amp; 80MB RAM" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbCeiling" IsChecked="True" HorizontalAlignment="Right" Checked="CbCeiling_Changed" Unchecked="CbCeiling_Changed" />
+                        <!-- Row 2: Ceiling -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="⚡" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Trần tối ưu ≤ 5% CPU &amp; 80MB RAM" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbCeiling" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbCeiling_Changed" Unchecked="CbCeiling_Changed" />
                         </DockPanel>
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <DockPanel Margin="0,2,0,8">
-                            <TextBlock Text="🚀 Tự khởi động khi đăng nhập Windows" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbAutoLaunchStartup" IsChecked="True" HorizontalAlignment="Right" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
+                        <!-- Row 3: Startup with Windows -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🚀" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Tự khởi động khi đăng nhập Windows" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbAutoLaunchStartup" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbAutoLaunchStartup_Changed" Unchecked="CbAutoLaunchStartup_Changed" />
                         </DockPanel>
 
-                        <Separator Background="#333336" Margin="0,4,0,8" />
+                        <Separator Style="{StaticResource RowDivider}" />
 
-                        <DockPanel Margin="0,2,0,2">
-                            <TextBlock Text="🔇 Tắt âm thanh video" VerticalAlignment="Center" FontSize="12.5" />
-                            <CheckBox x:Name="CbMute" IsChecked="True" HorizontalAlignment="Right" Checked="CbMute_Changed" Unchecked="CbMute_Changed" />
+                        <!-- Row 4: Mute -->
+                        <DockPanel Margin="0,3,0,3">
+                            <TextBlock Text="🔇" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Tắt âm thanh video" VerticalAlignment="Center" FontSize="13" Foreground="#ECECEC" />
+                            <CheckBox x:Name="CbMute" Style="{StaticResource ModernToggleSwitch}"
+                                      IsChecked="True" Checked="CbMute_Changed" Unchecked="CbMute_Changed" />
                         </DockPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Footer Bar -->
-        <Border Grid.Row="1" Background="#18181A" BorderBrush="#2D2D30" BorderThickness="0,1,0,0" Padding="16,10">
+        <!-- Footer Bar (2 Rows matching macOS) -->
+        <Border Grid.Row="1" Background="#141416" BorderBrush="#2D2D31" BorderThickness="0,0.8,0,0" Padding="16,10">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Row 0: Status & Stats -->
+                <!-- Row 0: Status Dot + Stats -->
                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
-                    <Ellipse x:Name="DotStatus" Width="8" Height="8" Fill="#4CC2FF" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="TxtStatus" Text="Đang phát" Foreground="#BBBBBB" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Ellipse x:Name="DotStatus" Width="8" Height="8" Fill="#32D74B" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TxtStatus" Text="Đang phát (4K • 60 FPS • Che 0%) • CPU 0.0% • RAM 0 MB"
+                               Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
 
                 <!-- Row 1: Action Buttons -->
                 <UniformGrid Grid.Row="1" Columns="4">
-                    <Button x:Name="BtnPlayPause" Content="Tạm dừng" Margin="0,0,4,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnPlayPause_Click" />
-                    <Button Content="Thu nhỏ" Margin="2,0,2,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnMinimize_Click" />
-                    <Button Content="Ẩn khay" Margin="2,0,2,0" Height="30" Style="{StaticResource ModernBtn}" Click="BtnHide_Click" />
-                    <Button Content="Thoát" Margin="4,0,0,0" Height="30" Style="{StaticResource ModernBtn}" Background="#3A1C1C" BorderBrush="#5C2626" Click="BtnExit_Click" />
+                    <Button x:Name="BtnPlayPause" Content="Tạm dừng" Margin="0,0,4,0" Height="28" Style="{StaticResource ModernBtn}" Click="BtnPlayPause_Click" />
+                    <Button Content="Thu nhỏ" Margin="2,0,2,0" Height="28" Style="{StaticResource ModernBtn}" Click="BtnMinimize_Click" />
+                    <Button Content="Ẩn khay" Margin="2,0,2,0" Height="28" Style="{StaticResource ModernBtn}" Click="BtnHide_Click" />
+                    <Button Content="Thoát" Margin="4,0,0,0" Height="28" Style="{StaticResource DangerBtn}" Click="BtnExit_Click" />
                 </UniformGrid>
             </Grid>
         </Border>
